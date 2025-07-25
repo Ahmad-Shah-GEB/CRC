@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en" >
+<head>
+  <meta charset="UTF-8" />
+  <title>Adopt Me: Egg Cracking Next to Player</title>
+  <style>
+    html, body {
+      margin: 0; padding: 0;
+      width: 100vw; height: 100vh;
+      overflow: hidden;
+      font-family: Arial, sans-serif;
+      background: #d0f4ff;
+      display: flex;
+      user-select: none;
+    }
+    #eggShopPanel {
+      position: fixed;
+      top: 20px; left: 20px;
+      width: 280px;
+      height: calc(100vh - 40px);
+      background: rgba(255, 251, 230, 0.95);
+      border: 3px solid #aaa;
+      border-radius: 12px;
+      box-shadow: 0 0 15px #999;
+      padding: 15px;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      z-index: 1000;
+      overflow-y: auto;
+      user-select: none;
+    }
+    #eggSellerImg {
+      width: 200px;
+      border-radius: 12px;
+      margin-bottom: 15px;
+      user-select: none;
+    }
+    #petsDisplayImg {
+      width: 200px;
+      border-radius: 12px;
+      margin-top: 20px;
+      user-select: none;
+      box-shadow: 0 0 12px #7a4eaa;
+    }
+    #buyEggBtn {
+      padding: 12px 20px;
+      font-size: 18px;
+      border-radius: 10px;
+      border: none;
+      cursor: pointer;
+      background-color: #90ee90;
+      transition: background-color 0.3s;
+      width: 100%;
+      margin-top: 10px;
+    }
+    #buyEggBtn:hover {
+      background-color: #70d870;
+    }
+    #closeShopBtn {
+      position: absolute;
+      top: 8px;
+      right: 10px;
+      background: #f44;
+      border: none;
+      color: white;
+      font-weight: bold;
+      font-size: 20px;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      cursor: pointer;
+      user-select: none;
+    }
+    #gameArea {
+      position: relative;
+      flex-grow: 1;
+      height: 100vh;
+      background: #fffbe6;
+      border-left: 3px solid #aaa;
+      border-radius: 0 12px 12px 0;
+      overflow: hidden;
+      outline: none;
+      user-select: none;
+    }
+    #player {
+      position: absolute;
+      width: 60px;
+      height: 60px;
+      top: calc(90% - 60px);
+      left: 20px;
+      user-select: none;
+      z-index: 10;
+    }
+    .obstacle {
+      position: absolute;
+      width: 120px;
+      height: 25px;
+      background: sienna;
+      border-radius: 6px;
+      box-shadow: 0 0 8px #7a3f00;
+      user-select: none;
+    }
+    .goal {
+      position: absolute;
+      width: 90px;
+      height: 90px;
+      background: gold;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      font-size: 48px;
+      box-shadow: 0 0 20px #ffdb4d;
+      cursor: pointer;
+      top: 20px;
+      left: 820px;
+      z-index: 5;
+      user-select: none;
+    }
+    #hud {
+      position: fixed;
+      top: 10px;
+      right: 20px;
+      font-size: 22px;
+      font-weight: bold;
+      color: #444;
+      z-index: 1100;
+      user-select: none;
+    }
+    /* Egg next to player */
+    #eggNextToPlayer, #petNextToPlayer {
+      position: absolute;
+      width: 60px;
+      height: 60px;
+      user-select: none;
+      pointer-events: none;
+      transition: opacity 0.5s ease;
+      z-index: 15;
+    }
+    #eggNextToPlayer {
+      background: url('egg.png') no-repeat center/contain;
+    }
+    #petNextToPlayer {
+      background: url('cow.png') no-repeat center/contain;
+      box-shadow: 0 0 12px 5px #8fbc8f;
+      opacity: 0;
+    }
+  </style>
+</head>
+<body>
+
+<div id="eggShopPanel">
+  <button id="closeShopBtn" title="Close">×</button>
+  <img id="eggSellerImg" src="OIP (1).webp" alt="Egg Seller" />
+  <button id="buyEggBtn">Buy Egg (175 coins)</button>
+  <img id="petsDisplayImg" src="pets.webp" alt="Available Pets" />
+</div>
+
+<div id="gameArea" tabindex="0">
+  <img src="ROBLOX.webp" id="player" alt="Player" />
+  <div id="goal" class="goal">🏁</div>
+  <div id="eggNextToPlayer" style="display:none;"></div>
+  <div id="petNextToPlayer"></div>
+</div>
+
+<div id="hud">
+  Coins: <span id="coinCount">0</span>
+</div>
+
+<script>
+  const player = document.getElementById("player");
+  const goal = document.getElementById("goal");
+  const eggShopPanel = document.getElementById("eggShopPanel");
+  const buyEggBtn = document.getElementById("buyEggBtn");
+  const closeShopBtn = document.getElementById("closeShopBtn");
+  const petsDisplayImg = document.getElementById("petsDisplayImg");
+  const coinCountSpan = document.getElementById("coinCount");
+  const gameArea = document.getElementById("gameArea");
+  const eggNextToPlayer = document.getElementById("eggNextToPlayer");
+  const petNextToPlayer = document.getElementById("petNextToPlayer");
+
+  let coins = 0;
+  const challenges = [
+    [
+      {top: '75%', left: '150px'},
+      {top: '60%', left: '350px'},
+      {top: '45%', left: '550px'},
+      {top: '30%', left: '700px'}
+    ],
+    [
+      {top: '70%', left: '250px'},
+      {top: '55%', left: '450px'},
+      {top: '40%', left: '600px'},
+      {top: '25%', left: '800px'}
+    ],
+    [
+      {top: '80%', left: '180px'},
+      {top: '65%', left: '400px'},
+      {top: '50%', left: '620px'},
+      {top: '35%', left: '750px'}
+    ]
+  ];
+
+  let currentChallengeIndex = 0;
+
+  // Player vars
+  let posX = 20;
+  let posY = window.innerHeight * 0.9 - 60;
+  const playerWidth = 60;
+  const playerHeight = 60;
+
+  let movingLeft = false;
+  let movingRight = false;
+
+  let isJumping = false;
+  let jumpVelocity = 0;
+  const gravity = 1.8;
+  const jumpStrength = 25;
+  const groundLevel = window.innerHeight * 0.9 - playerHeight;
+
+  let obstacles = [];
+
+  let eggBought = false; // if player currently has an egg to crack
+  let petVisible = false; // if pet is shown
+
+  gameArea.focus();
+
+  // Create obstacles based on current challenge
+  function createObstacles(challengeIndex) {
+    obstacles.forEach(ob => gameArea.removeChild(ob));
+    obstacles = [];
+
+    const layout = challenges[challengeIndex];
+    layout.forEach((pos, i) => {
+      const ob = document.createElement('div');
+      ob.classList.add('obstacle');
+      ob.style.top = pos.top;
+      ob.style.left = pos.left;
+      gameArea.appendChild(ob);
+      obstacles.push(ob);
+    });
+  }
+
+  createObstacles(currentChallengeIndex);
+
+  // Controls
+  document.addEventListener('keydown', e => {
+    if (eggShopPanel.style.display === "flex") return;
+
+    if (e.key === 'ArrowLeft') movingLeft = true;
+    else if (e.key === 'ArrowRight') movingRight = true;
+    else if (e.code === 'Space') jump();
+    else if (e.key === '1' && eggBought) {
+      crackEggNextToPlayer();
+    }
+  });
+  document.addEventListener('keyup', e => {
+    if (e.key === 'ArrowLeft') movingLeft = false;
+    else if (e.key === 'ArrowRight') movingRight = false;
+  });
+
+  buyEggBtn.addEventListener("click", () => {
+    if (coins >= 175 && !eggBought) {
+      coins -= 175;
+      updateCoins();
+      eggBought = true;
+      petVisible = false;
+      showEggNextToPlayer();
+      closeEggShop();
+    } else if (eggBought) {
+      alert("You already have an egg! Crack it by pressing '1' before buying another.");
+    } else {
+      alert("You need 175 coins to buy an egg! Back to the game to earn more.");
+      closeEggShop();
+    }
+  });
+
+  closeShopBtn.addEventListener("click", () => {
+    closeEggShop();
+  });
+
+  function gameLoop() {
+    if (eggShopPanel.style.display !== "flex" && !petVisible) {
+      if (movingLeft) moveHorizontal(-7);
+      if (movingRight) moveHorizontal(7);
+      if (isJumping) jumpLoop();
+      else checkFallReset();
+    }
+    updateEggAndPetPosition();
+    requestAnimationFrame(gameLoop);
+  }
+
+  function moveHorizontal(deltaX) {
+    let newX = posX + deltaX;
+    newX = Math.max(0, Math.min(window.innerWidth - playerWidth, newX));
+
+    if (!isCollidingWithObstacles(newX, posY)) {
+      posX = newX;
+      updatePlayerPosition();
+    }
+  }
+
+  function jump() {
+    if (!isJumping) {
+      isJumping = true;
+      jumpVelocity = jumpStrength;
+    }
+  }
+
+  function jumpLoop() {
+    posY -= jumpVelocity;
+    jumpVelocity -= gravity;
+
+    let landed = false;
+
+    if (posY >= groundLevel) {
+      posY = groundLevel;
+      landed = true;
+    } else {
+      for (const obs of obstacles) {
+        const obsRect = obs.getBoundingClientRect();
+        const gameRect = gameArea.getBoundingClientRect();
+
+        const obsTop = obsRect.top - gameRect.top + window.scrollY;
+        const obsLeft = obsRect.left - gameRect.left + window.scrollX;
+        const obsRight = obsLeft + obsRect.width;
+
+        const playerBottom = posY + playerHeight;
+
+        const horizontalOverlap = (posX + playerWidth > obsLeft) && (posX < obsRight);
+        const verticalLanding = (playerBottom >= obsTop) && (playerBottom <= obsTop + Math.abs(jumpVelocity) + gravity + 5);
+
+        if (horizontalOverlap && verticalLanding && jumpVelocity < 0) {
+          posY = obsTop - playerHeight;
+          landed = true;
+          break;
+        }
+      }
+    }
+
+    if (landed) {
+      isJumping = false;
+      jumpVelocity = 0;
+    }
+
+    updatePlayerPosition();
+  }
+
+  function updatePlayerPosition() {
+    player.style.left = posX + "px";
+    player.style.top = posY + "px";
+    checkGoal();
+  }
+
+  function updateEggAndPetPosition() {
+    if (eggBought) {
+      eggNextToPlayer.style.display = 'block';
+      // Position egg slightly right and top aligned with player
+      eggNextToPlayer.style.left = (posX + playerWidth + 5) + "px";
+      eggNextToPlayer.style.top = posY + "px";
+    } else {
+      eggNextToPlayer.style.display = 'none';
+    }
+
+    if (petVisible) {
+      petNextToPlayer.style.opacity = '1';
+      // Position pet slightly right and top aligned with player
+      petNextToPlayer.style.left = (posX + playerWidth + 5) + "px";
+      petNextToPlayer.style.top = posY + "px";
+    } else {
+      petNextToPlayer.style.opacity = '0';
+    }
+  }
+
+  function isCollidingWithObstacles(x, y) {
+    const playerRect = {
+      left: x,
+      right: x + playerWidth,
+      top: y,
+      bottom: y + playerHeight,
+    };
+
+    const gameAreaRect = gameArea.getBoundingClientRect();
+
+    for (const obs of obstacles) {
+      const obsRect = obs.getBoundingClientRect();
+      const obsRelative = {
+        left: obsRect.left - gameAreaRect.left,
+        right: obsRect.right - gameAreaRect.left,
+        top: obsRect.top - gameAreaRect.top,
+        bottom: obsRect.bottom - gameAreaRect.top,
+      };
+
+      if (
+        playerRect.left < obsRelative.right &&
+        playerRect.right > obsRelative.left &&
+        playerRect.top < obsRelative.bottom &&
+        playerRect.bottom > obsRelative.top
+      ) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  function checkGoal() {
+    const playerRect = player.getBoundingClientRect();
+    const goalRect = goal.getBoundingClientRect();
+    const gameAreaRect = gameArea.getBoundingClientRect();
+
+    const playerRel = {
+      left: playerRect.left - gameAreaRect.left,
+      right: playerRect.right - gameAreaRect.left,
+      top: playerRect.top - gameAreaRect.top,
+      bottom: playerRect.bottom - gameAreaRect.top,
+    };
+
+    const goalRel = {
+      left: goalRect.left - gameAreaRect.left,
+      right: goalRect.right - gameAreaRect.left,
+      top: goalRect.top - gameAreaRect.top,
+      bottom: goalRect.bottom - gameAreaRect.top,
+    };
+
+    if (
+      playerRel.left < goalRel.right &&
+      playerRel.right > goalRel.left &&
+      playerRel.top < goalRel.bottom &&
+      playerRel.bottom > goalRel.top
+    ) {
+      coins += 25;
+      updateCoins();
+      currentChallengeIndex = (currentChallengeIndex + 1) % challenges.length;
+      setTimeout(() => {
+        let playAgain = confirm("🎉 You reached the goal and earned 25 coins!\n\nDo you want to try a new challenge for more coins? Click 'Cancel' to go buy an egg.");
+        if (playAgain) {
+          resetPlayer();
+          createObstacles(currentChallengeIndex);
+          closeEggShop();
+          eggBought = false;
+          petVisible = false;
+          updateEggAndPetPosition();
+        } else {
+          showEggShop();
+        }
+      }, 100);
+    }
+  }
+
+  function checkFallReset() {
+    if (posY > window.innerHeight) {
+      resetPlayer();
+    }
+  }
+
+  function updateCoins() {
+    coinCountSpan.textContent = coins;
+  }
+
+  function resetPlayer() {
+    posX = 20;
+    posY = groundLevel;
+    isJumping = false;
+    jumpVelocity = 0;
+    updatePlayerPosition();
+  }
+
+  function showEggShop() {
+    eggShopPanel.style.display = "flex";
+  }
+  function closeEggShop() {
+    eggShopPanel.style.display = "none";
+  }
+
+  function crackEggNextToPlayer() {
+    if (!eggBought || petVisible) return;
+
+    // Play crack animation on eggNextToPlayer:
+    eggNextToPlayer.style.transition = "none";
+    eggNextToPlayer.style.filter = "drop-shadow(0 0 15px yellow)";
+    setTimeout(() => {
+      eggNextToPlayer.style.filter = "none";
+    }, 500);
+
+    // After short delay, hide egg, show pet:
+    setTimeout(() => {
+      eggBought = false;
+      eggNextToPlayer.style.display = 'none';
+
+      petVisible = true;
+      updateEggAndPetPosition();
+    }, 600);
+  }
+
+  resetPlayer();
+  updateCoins();
+  gameLoop();
+</script>
+
+</body>
+</html>
