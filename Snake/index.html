@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Snake Game - Die on Wall Hit</title>
+  <style>
+    body {
+      background: #222;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+      color: white;
+      font-family: Arial, sans-serif;
+    }
+    canvas {
+      background: #000;
+      display: block;
+      border: 2px solid #0f0;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="game" width="400" height="400"></canvas>
+
+  <script>
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+
+    const gridSize = 20;
+    const tileCount = canvas.width / gridSize;
+
+    let snake = [{ x: 10, y: 10 }];
+    let velocityX = 0;
+    let velocityY = 0;
+
+    const appleImg = new Image();
+    appleImg.src = 'https://upload.wikimedia.org/wikipedia/commons/1/15/Red_Apple.jpg';
+
+    let food = { x: 5, y: 5 };
+    let score = 0;
+
+    function gameLoop() {
+      update();
+      draw();
+    }
+
+    function update() {
+      const head = { x: snake[0].x + velocityX, y: snake[0].y + velocityY };
+
+      // Check for wall collision - if snake hits wall, game over
+      if (head.x < 0 || head.x >= tileCount || head.y < 0 || head.y >= tileCount) {
+        alert("Game Over! You hit the wall. Your score: " + score);
+        resetGame();
+        return;
+      }
+
+      // Move snake forward by adding head
+      snake.unshift(head);
+
+      // Check if food eaten
+      if (head.x === food.x && head.y === food.y) {
+        score++;
+        placeFood();
+      } else {
+        snake.pop(); // Remove tail if no food eaten
+      }
+    }
+
+    function draw() {
+      // Clear canvas
+      ctx.fillStyle = "#000";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Draw food (apple)
+      ctx.drawImage(appleImg, food.x * gridSize, food.y * gridSize, gridSize, gridSize);
+
+      // Draw snake
+      ctx.fillStyle = "lime";
+      for (let part of snake) {
+        ctx.fillRect(part.x * gridSize, part.y * gridSize, gridSize - 2, gridSize - 2);
+      }
+
+      // Draw score
+      ctx.fillStyle = "white";
+      ctx.font = "20px Arial";
+      ctx.fillText("Score: " + score, 10, 25);
+    }
+
+    // Place food at a random position that is not on the snake
+    function placeFood() {
+      let newFood;
+      do {
+        newFood = {
+          x: Math.floor(Math.random() * tileCount),
+          y: Math.floor(Math.random() * tileCount),
+        };
+      } while (snake.some(part => part.x === newFood.x && part.y === newFood.y));
+      food = newFood;
+    }
+
+    function resetGame() {
+      snake = [{ x: 10, y: 10 }];
+      velocityX = 0;
+      velocityY = 0;
+      score = 0;
+      placeFood();
+    }
+
+    window.addEventListener("keydown", e => {
+      switch (e.key) {
+        case "ArrowUp":
+          if (velocityY !== 1) {
+            velocityX = 0;
+            velocityY = -1;
+          }
+          break;
+        case "ArrowDown":
+          if (velocityY !== -1) {
+            velocityX = 0;
+            velocityY = 1;
+          }
+          break;
+        case "ArrowLeft":
+          if (velocityX !== 1) {
+            velocityX = -1;
+            velocityY = 0;
+          }
+          break;
+        case "ArrowRight":
+          if (velocityX !== -1) {
+            velocityX = 1;
+            velocityY = 0;
+          }
+          break;
+      }
+    });
+
+    setInterval(gameLoop, 100);
+  </script>
+</body>
+</html>
