@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>MLB-Style Baseball Game with Fielders and Keyboard Swing</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: sans-serif;
+      background-color: #87CEEB;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      user-select: none;
+    }
+
+    canvas {
+      background: #6B8E23;
+      border: 5px solid #333;
+      margin-top: 20px;
+      cursor: pointer;
+    }
+
+    #scoreBoard {
+      color: white;
+      margin-top: 10px;
+      font-size: 20px;
+      font-weight: bold;
+      text-shadow: 1px 1px 3px black;
+    }
+
+    #outsDisplay {
+      color: white;
+      margin-top: 5px;
+      font-size: 18px;
+      font-weight: bold;
+      text-shadow: 1px 1px 3px black;
+    }
+
+    #runsToWinContainer {
+      color: white;
+      margin-top: 15px;
+      font-size: 18px;
+      font-weight: bold;
+      text-shadow: 1px 1px 3px black;
+      user-select: none;
+    }
+
+    #runsToWinSlider {
+      width: 300px;
+      margin-top: 5px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+<h1 style="color:white;">⚾ MLB-Style Baseball Game with Fielders and Keyboard Swing</h1>
+
+<canvas id="gameCanvas" width="600" height="600"></canvas>
+
+<div id="scoreBoard">Score: <span id="score">0</span></div>
+<div id="outsDisplay">Outs: <span id="outs">0</span></div>
+
+<div id="runsToWinContainer">
+  Runs to Win: <span id="runsToWinDisplay">5</span><br />
+  <input id="runsToWinSlider" type="range" min="1" max="10" value="5" />
+</div>
+
+<button id="restartButton" style="display:none; margin-top: 20px; padding: 10px 20px; font-size: 18px; background: #f44336; color: white; border: none; border-radius: 5px; cursor: pointer;">
+  Restart Game
+</button>
+
+
+<script>
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+const scoreDisplay = document.getElementById("score");
+const outsDisplay = document.getElementById("outs");
+const runsToWinSlider = document.getElementById("runsToWinSlider");
+const runsToWinDisplay = document.getElementById("runsToWinDisplay");
+const restartButton = document.getElementById("restartButton");
+
+
+let score = 0;
+let outs = 0;
+let gameOver = false;
+
+let runsToWin = parseInt(runsToWinSlider.value);
+
+runsToWinSlider.addEventListener("input", () => {
+  if (gameOver) return; // Prevent changing runs to win after game over
+  runsToWin = parseInt(runsToWinSlider.value);
+  runsToWinDisplay.textContent = runsToWin;
+  if (score >= runsToWin) {
+    showMessage(`You Win! Score: ${score}`, "lime");
+    endGame();
+  }
+});
+
+const homeX = canvas.width / 2;
+const homeY = canvas.height - 80;
+
+const baseDist = 100;
+const bases = {
+  home: { x: homeX, y: homeY },
+  first: { x: homeX + baseDist, y: homeY - baseDist },
+  second: { x: homeX, y: homeY - baseDist * 2 },
+  third: { x: homeX - baseDist, y: homeY - baseDist }
+};
+
+let runners = {
+  first: false,
+  second: false,
+  third: false
+};
+
+let ball = {
+  x: bases.second.x,
+  y: bases.second.y + 10,
+  radius: 8,
+  active: true,
+  hit: false,
+  velocityX: 0,
+  velocityY: 0,
+};
+
+const pitchTypes = [
+  {
+    name: "Fastball",
+    movement: (t) => ({ x: 0, y: t * 6 })
+  },
+  {
+    name: "Curveball",
+    movement: (t) => ({
+      x: Math.sin(t * 0.1) * 3,
+      y: t * 4
+    })
+  },
+  {
+    name: "Slider",
+    movement: (t) => ({
+      x: Math.sin(t * 0.3) * 2,
+      y: t * 5
+    })
+  },
+  {
+    name: "Changeup",
+    movement: (t) => ({ x: 0, y: t * 3 })
+  },
+];
+
+let pitchStartTime = 0;
+let currentPitch = pitchTypes[0];
+
+let batter = {
+  x: bases.home.x - 25,
+  y: bases.home.y - 25,
+  bodyWidth: 12,
+  bodyHeight: 35,
+  headRadius: 8,
+  batLength: 55,
+  batAngleStart: -Math.PI / 8,
+  batAngleEnd: -Math.PI / 2.3,
+  batCurrentAngle: -Math.PI / 8,
+  swinging: false,
+  swingSpeed: 0.15
+};
+
+let message = { text: "", color: "", timer: 0 };
+
+let runnerControlMode = false;
+let runnerDecisionTimer = 0;
+const runnerDecisionMax = 180;
+
+function drawField() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Grass Outfield
+  ctx.beginPath();
+  ctx.fillStyle = "#3CB371";
+  ctx.moveTo(homeX, homeY);
+  ctx.arc(homeX, homeY, baseDist * 2.3, Math.PI, 2 * Math.PI);
+  ctx.lineTo(homeX, homeY);
+  ctx.fill();
+
+  // Infield dirt circle
+  ctx.beginPath();
+  ctx.fillStyle = "#DEB887";
+  ctx.arc(homeX, homeY, baseDist + 20, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Base paths
+  ctx.strokeStyle = "white";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(bases.home.x, bases.home.y);
+  ctx.lineTo(bases.first.x, bases.first.y);
+  ctx.lineTo(bases.second.x, bases.second.y);
+  ctx.lineTo(bases.third.x, bases.third.y);
+  ctx.lineTo(bases.home.x, bases.home.y);
+  ctx.stroke();
+
+  // Bases
+  ctx.fillStyle = "white";
+  for (let base in bases) {
+    ctx.beginPath();
+    ctx.arc(bases[base].x, bases[base].y, 6, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Pitcher's mound
+  ctx.beginPath();
+  ctx.fillStyle = "#A0522D";
+  ctx.arc(homeX, homeY - baseDist * 1.3, 10, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function drawFence() {
+  const fenceRadius = baseDist * 3.6; // moved fence further back behind outfielders
+  const fenceSteps = 120;
+
+  ctx.strokeStyle = "#2F4F4F";
+  ctx.lineWidth = 4;
+
+  for (let i = 0; i <= fenceSteps; i++) {
+    const angle = Math.PI + (Math.PI) * (i / fenceSteps);
+    const x = homeX + Math.cos(angle) * fenceRadius;
+    const y = homeY + Math.sin(angle) * fenceRadius;
+
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + 1, y + 1);
+    ctx.stroke();
+  }
+
+  ctx.fillStyle = "white";
+  ctx.font = "16px Arial";
+  ctx.fillText("HOME RUN", homeX - 40, homeY - fenceRadius + 60);
+}
+
+function drawFielders() {
+  ctx.fillStyle = "#00008B";
+
+  // Pitcher
+  drawFielder(homeX, homeY - baseDist * 1.3);
+
+  // First baseman
+  drawFielder(bases.first.x + 15, bases.first.y + 10);
+
+  // Second baseman
+  drawFielder(homeX + 25, homeY - baseDist * 1.7);
+
+  // Shortstop
+  drawFielder(homeX - 25, homeY - baseDist * 1.7);
+
+  // Third baseman
+  drawFielder(bases.third.x - 15, bases.third.y + 10);
+
+  // Left fielder
+  drawFielder(homeX - baseDist * 1.5, homeY - baseDist * 2.7);
+
+  // Center fielder
+  drawFielder(homeX, homeY - baseDist * 3.2);
+
+  // Right fielder
+  drawFielder(homeX + baseDist * 1.5, homeY - baseDist * 2.7);
+}
+
+function drawFielder(x, y) {
+  ctx.beginPath();
+  ctx.fillStyle = "#00008B";
+  ctx.arc(x, y - 10, 7, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillRect(x - 5, y - 10, 10, 20);
+}
+
+function drawBatter() {
+  const x = batter.x;
+  const y = batter.y;
+
+  ctx.fillStyle = "#222";
+  ctx.fillRect(x - batter.bodyWidth/2, y, batter.bodyWidth, batter.bodyHeight);
+
+  ctx.beginPath();
+  ctx.fillStyle = "#f0c987";
+  ctx.arc(x, y - batter.headRadius - 2, batter.headRadius, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.save();
+  ctx.translate(x + 10, y + 20);
+  ctx.rotate(batter.batCurrentAngle);
+  ctx.fillStyle = "#A0522D";
+  ctx.fillRect(0, -3, batter.batLength, 6);
+  ctx.restore();
+}
+
+function drawBall() {
+  if (!ball.active) return;
+  ctx.beginPath();
+  ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+  ctx.fillStyle = "#fff";
+  ctx.fill();
+  ctx.closePath();
+}
+function endGame() {
+  gameOver = true;
+  ball.active = false;
+  batter.swinging = false;
+  restartButton.style.display = "block";
+}
+
+function drawRunners() {
+  ctx.fillStyle = "red";
+  if (runners.first) {
+    ctx.beginPath();
+    ctx.arc(bases.first.x, bases.first.y, 8, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  if (runners.second) {
+    ctx.beginPath();
+    ctx.arc(bases.second.x, bases.second.y, 8, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  if (runners.third) {
+    ctx.beginPath();
+    ctx.arc(bases.third.x, bases.third.y, 8, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function updateBatterBat() {
+  if (batter.swinging) {
+    batter.batCurrentAngle -= batter.swingSpeed;
+    if (batter.batCurrentAngle <= batter.batAngleEnd) {
+      batter.swinging = false;
+    }
+  } else if (batter.batCurrentAngle < batter.batAngleStart) {
+    batter.batCurrentAngle += batter.swingSpeed * 0.8;
+  }
+}
+
+function resetBall() {
+  ball.x = bases.second.x;
+  ball.y = bases.second.y + 10;
+  ball.active = true;
+  ball.hit = false;
+  ball.velocityX = 0;
+  ball.velocityY = 0;
+}
+
+function pitchBall() {
+  pitchStartTime = performance.now();
+  currentPitch = pitchTypes[Math.floor(Math.random() * pitchTypes.length)];
+  ball.active = true;
+  ball.hit = false;
+  ball.x = bases.second.x;
+  ball.y = bases.second.y + 10;
+  ball.velocityX = 0;
+  ball.velocityY = 0;
+}
+
+function updateBall(deltaTime) {
+  if (!ball.active) return;
+
+  if (!ball.hit) {
+    const t = (performance.now() - pitchStartTime) / 16;
+    const movement = currentPitch.movement(t);
+    ball.x = bases.second.x + movement.x;
+    ball.y = bases.second.y + 10 + movement.y;
+
+    // Check if ball crosses plate area (home plate)
+    if (ball.y >= bases.home.y) {
+      ball.active = false;
+      if (!batter.swinging) {
+        incrementOuts();
+        showMessage("Strike! Swing with SPACE!", "orange");
+        pitchBall();
+      } else {
+        showMessage("Swing too late!", "red");
+        incrementOuts();
+        pitchBall();
+      }
+    }
+  } else {
+    ball.x += ball.velocityX * deltaTime;
+    ball.y += ball.velocityY * deltaTime;
+
+    // Check for home run (ball beyond fence)
+    const fenceRadius = baseDist * 3.6;
+    const distFromHome = Math.hypot(ball.x - homeX, ball.y - homeY);
+    if (distFromHome > fenceRadius) {
+      score++;
+      updateScore();
+      showMessage("HOME RUN!", "lime");
+      resetRunners(true);
+      pitchBall();
+    }
+
+    // If ball hits ground (bottom of canvas)
+    if (ball.y > canvas.height) {
+      ball.active = false;
+      pitchBall();
+    }
+  }
+}
+
+function incrementOuts() {
+  outs++;
+  if (outs >= 3) {
+    showMessage("3 Outs - Game Over", "red");
+    endGame();
+  }
+  updateOuts();
+}
+
+function resetRunners(homeRun = false) {
+  if (homeRun) {
+    // All runners score
+    const totalScored = (runners.first ? 1 : 0) + (runners.second ? 1 : 0) + (runners.third ? 1 : 0);
+    score += totalScored;
+    updateScore();
+  }
+  runners.first = false;
+  runners.second = false;
+  runners.third = false;
+}
+
+function updateScore() {
+  scoreDisplay.textContent = score;
+  if (score >= runsToWin) {
+    showMessage(`You Win! Score: ${score}`, "lime");
+    endGame();
+  }
+}
+
+function updateOuts() {
+  outsDisplay.textContent = outs;
+}
+
+function showMessage(text, color) {
+  message.text = text;
+  message.color = color;
+  message.timer = 150; // roughly 2.5 seconds
+}
+
+function drawMessage() {
+  if (message.timer > 0) {
+    ctx.fillStyle = message.color;
+    ctx.font = "24px Arial Black";
+    ctx.textAlign = "center";
+    ctx.fillText(message.text, canvas.width / 2, 50);
+    message.timer--;
+  }
+}
+
+function endGame() {
+  gameOver = true;
+  ball.active = false;
+  batter.swinging = false;
+  restartButton.style.display = "block";  // ✅ This is required!
+}
+
+
+
+
+function handleSwing() {
+  if (gameOver) return;
+  if (!batter.swinging) {
+    batter.swinging = true;
+    batter.batCurrentAngle = batter.batAngleStart;
+  }
+}
+
+function checkHit() {
+  if (!ball.active || ball.hit) return;
+
+  // Rough check: is the ball close to the bat when swung?
+  // Bat tip coordinates
+  const batTipX = batter.x + 10 + Math.cos(batter.batCurrentAngle) * batter.batLength;
+  const batTipY = batter.y + 20 + Math.sin(batter.batCurrentAngle) * batter.batLength;
+
+  const dist = Math.hypot(ball.x - batTipX, ball.y - batTipY);
+
+  if (dist < ball.radius + 10) {
+    ball.hit = true;
+    // Set ball velocity based on swing speed and angle
+    ball.velocityX = Math.cos(batter.batCurrentAngle) * 10;
+    ball.velocityY = Math.sin(batter.batCurrentAngle) * 10;
+
+    // Advance runners or score runs
+    advanceRunners();
+  }
+}
+
+function advanceRunners() {
+  // Simple runner advance: runners advance one base; score if on third
+  if (runners.third) {
+    score++;
+  }
+  runners.third = runners.second;
+  runners.second = runners.first;
+  runners.first = true; // batter becomes runner on first base
+
+  updateScore();
+}
+
+function gameLoop(timestamp) {
+  if (!lastTimestamp) lastTimestamp = timestamp;
+  const deltaTime = (timestamp - lastTimestamp) / 16;
+  lastTimestamp = timestamp;
+
+  drawField();
+  drawFence();
+  drawFielders();
+  drawRunners();
+  drawBatter();
+  drawBall();
+  drawMessage();
+
+  updateBatterBat();
+  updateBall(deltaTime);
+  checkHit();
+
+  if (!gameOver) {
+    requestAnimationFrame(gameLoop);
+  }
+}
+
+let lastTimestamp = 0;
+
+// Start the game
+pitchBall();
+requestAnimationFrame(gameLoop);
+
+window.addEventListener("keydown", (e) => {
+  if (e.code === "Space") {
+    handleSwing();
+  }
+});
+
+restartButton.addEventListener("click", () => {
+  // Reset all game state
+  score = 0;
+  outs = 0;
+  runners = { first: false, second: false, third: false };
+  updateScore();
+  updateOuts();
+  gameOver = false;
+  restartButton.style.display = "none";
+  resetBall();
+  pitchBall();
+  requestAnimationFrame(gameLoop);
+});
+
+</script>
+
+</body>
+</html>
