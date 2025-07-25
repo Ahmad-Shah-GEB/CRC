@@ -129,6 +129,89 @@
       50% { transform: rotate(180deg) translateY(-30px); }
       100% { transform: rotate(360deg) translateY(0); }
     }
+    @keyframes waveJump {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-40px) rotate(-10deg); }
+    }
+
+    @keyframes barrelRoll {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    @keyframes frontsideAir {
+      0% { transform: translateY(0) scale(1); }
+      50% { transform: translateY(-40px) scale(1.3); }
+      100% { transform: translateY(0) scale(1); }
+    }
+
+    @keyframes backsideAir {
+      0% { transform: translateY(0) rotateY(0); }
+      50% { transform: translateY(-40px) rotateY(180deg); }
+      100% { transform: translateY(0) rotateY(360deg); }
+    }
+
+    @keyframes theDrop {
+      0% { transform: translateY(-50px); opacity: 0; }
+      100% { transform: translateY(0); opacity: 1; }
+    }
+
+    @keyframes shuvit {
+      0% { transform: rotateZ(0deg); }
+      50% { transform: rotateZ(180deg) translateY(-20px); }
+      100% { transform: rotateZ(360deg); }
+    }
+
+    @keyframes floater {
+      0%, 100% { transform: translateY(0); }
+      25% { transform: translateY(-20px); }
+      50% { transform: translateY(-30px); }
+      75% { transform: translateY(-20px); }
+    }
+
+    @keyframes cutback {
+      0% { transform: rotate(0deg); }
+      50% { transform: rotate(-45deg); }
+      100% { transform: rotate(0deg); }
+    }
+
+    @keyframes tubeRide {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.3) rotate(10deg); }
+      100% { transform: scale(1); }
+    }
+
+    @keyframes spin360 {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    @keyframes laybackSnap {
+      0% { transform: skewX(0deg); }
+      50% { transform: skewX(-25deg) translateY(-20px); }
+      100% { transform: skewX(0deg); }
+    }
+
+    @keyframes airReverse {
+      0% { transform: translateY(0) rotateY(0); }
+      50% { transform: translateY(-30px) rotateY(180deg); }
+      100% { transform: translateY(0) rotateY(360deg); }
+    }
+
+    /* Assign class-based shortcuts */
+    .waveJump { animation: waveJump 1s ease-in-out forwards; }
+    .barrelRoll { animation: barrelRoll 1s ease-in-out forwards; }
+    .frontsideAir { animation: frontsideAir 1s ease-in-out forwards; }
+    .backsideAir { animation: backsideAir 1s ease-in-out forwards; }
+    .theDrop { animation: theDrop 1s ease-in-out forwards; }
+    .shuvit { animation: shuvit 1s ease-in-out forwards; }
+    .floater { animation: floater 1s ease-in-out forwards; }
+    .cutback { animation: cutback 1s ease-in-out forwards; }
+    .tubeRide { animation: tubeRide 1s ease-in-out forwards; }
+    .spin360 { animation: spin360 1s ease-in-out forwards; }
+    .laybackSnap { animation: laybackSnap 1s ease-in-out forwards; }
+    .airReverse { animation: airReverse 1s ease-in-out forwards; }
+
 
     .jump {
       animation: jump 1s ease-in-out forwards;
@@ -207,18 +290,18 @@
 
 <script>
   const tricks = [
-    { name: 'Wave Jump', score: 80, animation: 'jump' },
-    { name: 'Barrel Roll', score: 90, animation: 'spin' },
-    { name: 'Frontside Air', score: 75, animation: 'jump' },
-    { name: 'Backside Air', score: 85, animation: 'spin' },
-    { name: 'The Drop', score: 95, animation: 'jump' },
-    { name: 'Shuvit', score: 70, animation: 'spin' },
-    { name: 'Floater', score: 88, animation: 'jump' },
-    { name: 'Cutback', score: 78, animation: 'spin' },
-    { name: 'Tube Ride', score: 92, animation: 'jump' },
-    { name: '360 Spin', score: 83, animation: 'spin' },
-    { name: 'Layback Snap', score: 76, animation: 'jump' },
-    { name: 'Air Reverse', score: 89, animation: 'spin' }
+    { name: 'Wave Jump', score: 80, animation: 'waveJump' },
+    { name: 'Barrel Roll', score: 90, animation: 'barrelRoll' },
+    { name: 'Frontside Air', score: 75, animation: 'frontsideAir' },
+    { name: 'Backside Air', score: 85, animation: 'backsideAir' },
+    { name: 'The Drop', score: 95, animation: 'theDrop' },
+    { name: 'Shuvit', score: 70, animation: 'shuvit' },
+    { name: 'Floater', score: 88, animation: 'floater' },
+    { name: 'Cutback', score: 78, animation: 'cutback' },
+    { name: 'Tube Ride', score: 92, animation: 'tubeRide' },
+    { name: '360 Spin', score: 83, animation: 'spin360' },
+    { name: 'Layback Snap', score: 76, animation: 'laybackSnap' },
+    { name: 'Air Reverse', score: 89, animation: 'airReverse' }
   ];
 
   // Background Music Control
@@ -319,6 +402,27 @@
     const winnerText = winners.length === 1
       ? `Winner: Surfer ${winners[0]}!`
       : `It's a tie between surfers ${winners.join(" & ")}!`;
+
+      function playConfetti() {
+        const duration = 3 * 1000;
+        const animationEnd = Date.now() + duration;
+        const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 1000 };
+
+        const interval = setInterval(function() {
+          const timeLeft = animationEnd - Date.now();
+
+          if (timeLeft <= 0) {
+            return clearInterval(interval);
+          }
+
+          const particleCount = 50 * (timeLeft / duration);
+          // since particles fall down, we start a bit higher than random
+          confetti(Object.assign({}, defaults, {
+            particleCount,
+            origin: { x: Math.random(), y: Math.random() * 0.5 }
+          }));
+        }, 250);
+      }
 
     document.getElementById("winner").textContent = winnerText;
     disableMusic();
