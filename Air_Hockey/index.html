@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en" >
+<head>
+  <meta charset="UTF-8" />
+  <title>Air Hockey with Sparks Effect</title>
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+    }
+    body {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;  /* vertical center */
+      align-items: center;      /* horizontal center */
+      background: #d9f0f0;      /* lighter teal background */
+      color: #222;              /* dark text for contrast */
+      font-family: sans-serif;
+      height: 100vh;
+      text-align: center;
+      user-select: none;
+      overflow: hidden;
+    }
+    canvas {
+      background: #b7e3e3; /* lighter teal court base */
+      border: 2px solid white;
+      display: block;
+      margin-top: 15px;
+      position: relative;
+    }
+    #modeSelector {
+      margin-top: 10px;
+    }
+    button {
+      background-color: #3aafa9;
+      border: none;
+      color: white;
+      padding: 10px 20px;
+      margin: 0 10px;
+      font-size: 16px;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+    button:hover {
+      background-color: #2d8a88;
+    }
+    button.active {
+      background-color: #2d8a88;
+    }
+    #restartBtn {
+      margin-top: 20px;
+      width: 150px;
+    }
+
+    /* START SCREEN styles */
+    #startScreen, #rulesScreen {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: #d9f0f0;
+      color: #222;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 9999;
+      background-color: #a7d8d8; /* light teal */
+      background-image:
+        radial-gradient(white 10%, transparent 11%),
+        radial-gradient(white 10%, transparent 11%);
+      background-position: 0 0, 25px 25px;
+      background-size: 50px 50px;
+    }
+    #startScreen h1, #rulesScreen h1 {
+      font-size: 48px;
+      margin-bottom: 40px;
+      text-shadow: 2px 2px 4px #00000044;
+    }
+    #startScreen button, #rulesScreen button {
+      font-size: 28px;
+      padding: 15px 50px;
+      border-radius: 8px;
+      box-shadow: 0 5px 10px #26706a;
+      margin: 10px 0;
+      width: 220px;
+    }
+    #rulesScreen p {
+      font-size: 22px;
+      margin: 0 20px 40px;
+      max-width: 600px;
+      line-height: 1.4;
+    }
+
+    /* Hide the game UI initially */
+    #gameUI {
+      display: none;
+      width: 100%;
+      max-width: 1200px;
+    }
+  </style>
+</head>
+<body>
+  <!-- START SCREEN -->
+  <div id="startScreen">
+    <h1>Air Hockey! Press "Start" to play and "Rules" for the rules!</h1>
+    <button id="rulesBtn">Rules</button>
+    <button id="startBtn">Start Game</button>
+  </div>
+
+  <!-- RULES SCREEN -->
+  <div id="rulesScreen" style="display:none;">
+    <h1>Rules</h1>
+    <p>Move your paddle around the screen. Try to use your paddle to hit the puck into the other player's goal. Whoever has the most points at the end, wins!</p>
+    <button id="backBtn">Back</button>
+  </div>
+
+  <!-- GAME UI -->
+  <div id="gameUI">
+    <h1>Air Hockey</h1>
+    <p>Player 1: W A S D | Player 2: Arrow Keys</p>
+
+    <div id="modeSelector">
+      <button id="twoPlayersBtn" class="active">2 Players</button>
+      <button id="botBtn">Play vs Bot</button>
+    </div>
+
+    <canvas id="gameCanvas" width="1200" height="600"></canvas>
+
+    <button id="restartBtn">Restart Game</button>
+  </div>
+
+  <script>
+    const startScreen = document.getElementById('startScreen');
+    const startBtn = document.getElementById('startBtn');
+    const rulesBtn = document.getElementById('rulesBtn');
+    const rulesScreen = document.getElementById('rulesScreen');
+    const backBtn = document.getElementById('backBtn');
+    const gameUI = document.getElementById('gameUI');
+
+    // Show rules screen
+    rulesBtn.onclick = () => {
+      startScreen.style.display = 'none';
+      rulesScreen.style.display = 'flex';
+    };
+
+    // Back to start screen
+    backBtn.onclick = () => {
+      rulesScreen.style.display = 'none';
+      startScreen.style.display = 'flex';
+    };
+
+    // Start game
+    startBtn.onclick = () => {
+      startScreen.style.display = 'none'; // Hide start screen
+      gameUI.style.display = 'block';     // Show game UI
+      resetPuck();
+      gameLoop();
+    };
+
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    const twoPlayersBtn = document.getElementById('twoPlayersBtn');
+    const botBtn = document.getElementById('botBtn');
+    const restartBtn = document.getElementById('restartBtn');
+
+    let mode = '2players'; // default mode
+
+    const paddleRadius = 30;
+    const puckRadius = 15;
+
+    // Goal size & position
+    const goalWidth = 20;
+    const goalHeight = 180;
+    const goalY = (canvas.height - goalHeight) / 2;
+
+    const paddle1 = { x: 160, y: 300, up: false, down: false, left: false, right: false };
+    const paddle2 = { x: 1040, y: 300, up: false, down: false, left: false, right: false };
+    const puck = { x: canvas.width / 2, y: canvas.height / 2, vx: 6, vy: 3 };
+
+    let score1 = 0;
+    let score2 = 0;
+
+    // Particle system for sparks
+    const particles = [];
+
+    function createSparks(x, y, count = 15) {
+      for (let i = 0; i < count; i++) {
+        particles.push({
+          x: x,
+          y: y,
+          vx: (Math.random() - 0.5) * 6,
+          vy: (Math.random() - 0.5) * 6,
+          alpha: 1,
+          size: Math.random() * 3 + 2,
+          life: 30 + Math.random() * 20
+        });
+      }
+    }
+
+    function updateParticles() {
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.x += p.vx;
+        p.y += p.vy;
+        p.alpha -= 0.03;
+        p.life--;
+        if (p.alpha <= 0 || p.life <= 0) {
+          particles.splice(i, 1);
+        }
+      }
+    }
+
+    function drawParticles() {
+      for (const p of particles) {
+        ctx.fillStyle = `rgba(255, 255, 0, ${p.alpha})`; // yellow, fading out
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    function drawCircle(x, y, radius, color) {
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.arc(x, y, radius, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Draw puck as solid black circle (no stripes)
+    function drawPuck(x, y, radius) {
+      ctx.fillStyle = 'black';
+      ctx.beginPath();
+      ctx.arc(x, y, radius, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Hockey rink style court background on light teal base
+    function drawCourtBackground() {
+      // Fill base lighter teal
+      ctx.fillStyle = '#b7e3e3';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Draw outer rink border (rounded rectangle)
+      const rinkRadius = 80;
+      ctx.lineWidth = 6;
+      ctx.strokeStyle = 'white';
+      ctx.beginPath();
+      ctx.moveTo(rinkRadius, 0);
+      ctx.lineTo(canvas.width - rinkRadius, 0);
+      ctx.quadraticCurveTo(canvas.width, 0, canvas.width, rinkRadius);
+      ctx.lineTo(canvas.width, canvas.height - rinkRadius);
+      ctx.quadraticCurveTo(canvas.width, canvas.height, canvas.width - rinkRadius, canvas.height);
+      ctx.lineTo(rinkRadius, canvas.height);
+      ctx.quadraticCurveTo(0, canvas.height, 0, canvas.height - rinkRadius);
+      ctx.lineTo(0, rinkRadius);
+      ctx.quadraticCurveTo(0, 0, rinkRadius, 0);
+      ctx.stroke();
+
+      // Center red line
+      ctx.strokeStyle = 'red';
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(canvas.width / 2, 0);
+      ctx.lineTo(canvas.width / 2, canvas.height);
+      ctx.stroke();
+
+      // Blue lines (zone lines)
+      const blueLineWidth = 8;
+      ctx.strokeStyle = '#0047AB'; // hockey blue
+      ctx.lineWidth = blueLineWidth;
+
+      const blueLineOffset = 250;
+      // Left blue line
+      ctx.beginPath();
+      ctx.moveTo(blueLineOffset, 0);
+      ctx.lineTo(blueLineOffset, canvas.height);
+      ctx.stroke();
+
+      // Right blue line
+      ctx.beginPath();
+      ctx.moveTo(canvas.width - blueLineOffset, 0);
+      ctx.lineTo(canvas.width - blueLineOffset, canvas.height);
+      ctx.stroke();
+
+      // Center ice faceoff circle
+      const centerX = canvas.width / 2;
+      const centerY = canvas.height / 2;
+      const centerCircleRadius = 80;
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = 'red';
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, centerCircleRadius, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // Faceoff dot in center circle (small red dot)
+      ctx.fillStyle = 'red';
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, 8, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Two faceoff circles near goals (left and right)
+      const faceoffRadius = 50;
+      const faceoffY1 = canvas.height / 3;
+      const faceoffY2 = 2 * canvas.height / 3;
+      const leftFaceoffX = blueLineOffset + 90;
+      const rightFaceoffX = canvas.width - blueLineOffset - 90;
+
+      ctx.strokeStyle = 'red';
+      ctx.lineWidth = 4;
+      // Left top faceoff circle
+      ctx.beginPath();
+      ctx.arc(leftFaceoffX, faceoffY1, faceoffRadius, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // Left bottom faceoff circle
+      ctx.beginPath();
+      ctx.arc(leftFaceoffX, faceoffY2, faceoffRadius, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // Right top faceoff circle
+      ctx.beginPath();
+      ctx.arc(rightFaceoffX, faceoffY1, faceoffRadius, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // Right bottom faceoff circle
+      ctx.beginPath();
+      ctx.arc(rightFaceoffX, faceoffY2, faceoffRadius, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // Goal creases (semi-circles in front of goals)
+      ctx.fillStyle = 'rgba(0, 71, 171, 0.3)'; // translucent blue
+      const creaseRadius = 60;
+      // Left crease
+      ctx.beginPath();
+      ctx.arc(goalWidth, goalY + goalHeight / 2, creaseRadius, -Math.PI / 2, Math.PI / 2, false);
+      ctx.lineTo(goalWidth, goalY + goalHeight / 2 + creaseRadius);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = '#0047AB';
+      ctx.lineWidth = 3;
+      ctx.stroke();
+
+      // Right crease
+      ctx.beginPath();
+      ctx.arc(canvas.width - goalWidth, goalY + goalHeight / 2, creaseRadius, Math.PI / 2, -Math.PI / 2, false);
+      ctx.lineTo(canvas.width - goalWidth, goalY + goalHeight / 2 - creaseRadius);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+    }
+
+    function drawGoals() {
+      ctx.fillStyle = 'white';
+      ctx.fillRect(0, goalY, goalWidth, goalHeight); // Left goal
+      ctx.fillRect(canvas.width - goalWidth, goalY, goalWidth, goalHeight); // Right goal
+    }
+
+    function drawScore() {
+      ctx.fillStyle = '#0047AB'; // hockey blue
+      ctx.font = '72px Arial Black';
+      ctx.textAlign = 'center';
+      ctx.fillText(score1, canvas.width / 4, 90);
+      ctx.fillText(score2, (canvas.width / 4) * 3, 90);
+    }
+
+    // Keyboard input tracking
+    const keysPressed = {};
+
+    window.addEventListener('keydown', (e) => {
+      keysPressed[e.key.toLowerCase()] = true;
+      updatePaddleControls();
+    });
+    window.addEventListener('keyup', (e) => {
+      keysPressed[e.key.toLowerCase()] = false;
+      updatePaddleControls();
+    });
+
+    function updatePaddleControls() {
+      // Player 1 (WASD)
+      paddle1.up = keysPressed['w'] || false;
+      paddle1.down = keysPressed['s'] || false;
+      paddle1.left = keysPressed['a'] || false;
+      paddle1.right = keysPressed['d'] || false;
+
+      // Player 2 (Arrow Keys)
+      paddle2.up = keysPressed['arrowup'] || false;
+      paddle2.down = keysPressed['arrowdown'] || false;
+      paddle2.left = keysPressed['arrowleft'] || false;
+      paddle2.right = keysPressed['arrowright'] || false;
+    }
+
+    function movePaddle(paddle) {
+      const speed = 8;
+      if (paddle.up) paddle.y -= speed;
+      if (paddle.down) paddle.y += speed;
+      if (paddle.left) paddle.x -= speed;
+      if (paddle.right) paddle.x += speed;
+
+      // Keep paddle inside canvas
+      paddle.x = Math.max(paddleRadius, Math.min(canvas.width - paddleRadius, paddle.x));
+      paddle.y = Math.max(paddleRadius, Math.min(canvas.height - paddleRadius, paddle.y));
+    }
+
+    // Bot paddle AI movement (simple tracking)
+    function moveBotPaddle() {
+      const speed = 7;
+      // Follow puck only if puck is on bot's side
+      if (puck.x > canvas.width / 2) {
+        if (puck.y < paddle2.y - 10) paddle2.y -= speed;
+        else if (puck.y > paddle2.y + 10) paddle2.y += speed;
+        if (puck.x < paddle2.x) paddle2.x -= speed / 2;
+        else paddle2.x += speed / 2;
+      } else {
+        // Return to center vertically
+        if (paddle2.y < canvas.height / 2 - 10) paddle2.y += speed / 2;
+        else if (paddle2.y > canvas.height / 2 + 10) paddle2.y -= speed / 2;
+      }
+
+      // Keep paddle inside canvas
+      paddle2.x = Math.max(canvas.width / 2 + paddleRadius, Math.min(canvas.width - paddleRadius, paddle2.x));
+      paddle2.y = Math.max(paddleRadius, Math.min(canvas.height - paddleRadius, paddle2.y));
+    }
+
+    function resetPuck() {
+      puck.x = canvas.width / 2;
+      puck.y = canvas.height / 2;
+      // Randomize initial velocity and direction
+      puck.vx = (Math.random() < 0.5 ? -1 : 1) * (5 + Math.random() * 3);
+      puck.vy = (Math.random() < 0.5 ? -1 : 1) * (3 + Math.random() * 3);
+    }
+
+    function detectCollision(paddle) {
+      const dx = puck.x - paddle.x;
+      const dy = puck.y - paddle.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      return dist < puckRadius + paddleRadius;
+    }
+
+    function resolveCollision(paddle) {
+      const dx = puck.x - paddle.x;
+      const dy = puck.y - paddle.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+
+      // Normalize vector
+      const nx = dx / dist;
+      const ny = dy / dist;
+
+      // Reflect puck velocity
+      const speed = Math.sqrt(puck.vx * puck.vx + puck.vy * puck.vy);
+
+      // New velocity vector based on collision normal
+      puck.vx = nx * speed * 1.2;
+      puck.vy = ny * speed * 1.2;
+
+      // Move puck out of paddle to prevent sticking
+      puck.x = paddle.x + nx * (puckRadius + paddleRadius);
+      puck.y = paddle.y + ny * (puckRadius + paddleRadius);
+
+      createSparks(puck.x, puck.y);
+    }
+
+    function updatePuck() {
+      puck.x += puck.vx;
+      puck.y += puck.vy;
+
+      // Bounce off top and bottom walls
+      if (puck.y - puckRadius <= 0) {
+        puck.y = puckRadius;
+        puck.vy *= -1;
+        createSparks(puck.x, puck.y);
+      }
+      if (puck.y + puckRadius >= canvas.height) {
+        puck.y = canvas.height - puckRadius;
+        puck.vy *= -1;
+        createSparks(puck.x, puck.y);
+      }
+
+      // Bounce off left and right walls (except goals)
+      if (puck.x - puckRadius <= goalWidth) {
+        // Check if puck is in goal vertically
+        if (puck.y > goalY && puck.y < goalY + goalHeight) {
+          score2++;
+          resetPuck();
+        } else {
+          puck.x = puckRadius + goalWidth;
+          puck.vx *= -1;
+          createSparks(puck.x, puck.y);
+        }
+      }
+      if (puck.x + puckRadius >= canvas.width - goalWidth) {
+        if (puck.y > goalY && puck.y < goalY + goalHeight) {
+          score1++;
+          resetPuck();
+        } else {
+          puck.x = canvas.width - puckRadius - goalWidth;
+          puck.vx *= -1;
+          createSparks(puck.x, puck.y);
+        }
+      }
+    }
+
+    // Game Loop
+    function gameLoop() {
+      drawCourtBackground();
+      drawGoals();
+      drawScore();
+
+      // Move paddles
+      movePaddle(paddle1);
+      if (mode === 'bot') {
+        moveBotPaddle();
+      } else {
+        movePaddle(paddle2);
+      }
+
+      // Update puck position
+      updatePuck();
+
+      // Collision detection
+      if (detectCollision(paddle1)) {
+        resolveCollision(paddle1);
+      }
+      if (detectCollision(paddle2)) {
+        resolveCollision(paddle2);
+      }
+
+      // Draw paddles
+      drawCircle(paddle1.x, paddle1.y, paddleRadius, '#0047AB'); // blue paddle1
+      drawCircle(paddle2.x, paddle2.y, paddleRadius, '#ca4f54'); // red paddle2
+
+      // Draw puck
+      drawPuck(puck.x, puck.y, puckRadius);
+
+      // Draw particles (sparks)
+      updateParticles();
+      drawParticles();
+
+      requestAnimationFrame(gameLoop);
+    }
+
+    // Mode buttons
+    twoPlayersBtn.onclick = () => {
+      mode = '2players';
+      twoPlayersBtn.classList.add('active');
+      botBtn.classList.remove('active');
+    };
+
+    botBtn.onclick = () => {
+      mode = 'bot';
+      botBtn.classList.add('active');
+      twoPlayersBtn.classList.remove('active');
+    };
+
+    // Restart button
+    restartBtn.onclick = () => {
+      score1 = 0;
+      score2 = 0;
+      resetPuck();
+    };
+  </script>
+</body>
+</html>
