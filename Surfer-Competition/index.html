@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Surfer Trick Selector</title>
+  <style>
+    /* Ocean background with subtle waves */
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      margin: 0;
+      color: #333;
+      background: linear-gradient(to top, #0077be 0%, #00bfff 60%, #a0e9ff 100%);
+      overflow-x: hidden;
+      position: relative;
+      min-height: 100vh;
+    }
+    /* Animated waves */
+    body::before, body::after {
+      content: "";
+      position: fixed;
+      bottom: 0;
+      width: 200%;
+      height: 150px;
+      background-repeat: repeat-x;
+      background-position: bottom;
+      background-size: 150px 150px;
+      border-radius: 100% / 50%;
+      animation-timing-function: ease-in-out;
+      animation-iteration-count: infinite;
+      animation-direction: alternate;
+      z-index: 0;
+    }
+    body::before {
+      left: -50%;
+      background-image: url('data:image/svg+xml;utf8,<svg width="150" height="150" viewBox="0 0 150 150" xmlns="http://www.w3.org/2000/svg"><path fill="rgba(255,255,255,0.3)" d="M0 75 Q37.5 0 75 75 T150 75 V150 H0 Z"/></svg>');
+      animation-name: wave1;
+      animation-duration: 6s;
+    }
+    body::after {
+      left: -60%;
+      background-image: url('data:image/svg+xml;utf8,<svg width="150" height="150" viewBox="0 0 150 150" xmlns="http://www.w3.org/2000/svg"><path fill="rgba(255,255,255,0.4)" d="M0 75 Q37.5 150 75 75 T150 75 V150 H0 Z"/></svg>');
+      animation-name: wave2;
+      animation-duration: 10s;
+    }
+    @keyframes wave1 {
+      0%   { transform: translateX(0) translateY(0); }
+      100% { transform: translateX(25%) translateY(15px); }
+    }
+    @keyframes wave2 {
+      0%   { transform: translateX(0) translateY(0); }
+      100% { transform: translateX(20%) translateY(-15px); }
+    }
+
+    .container {
+      margin-top: 50px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .surfer {
+      display: inline-block;
+      width: 30%;
+      padding: 15px;
+      margin: 10px;
+      background-color: rgba(224, 247, 250, 0.9);
+      border-radius: 12px;
+      box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    .surfer h2 {
+      color: #004d40;
+    }
+
+    .btn {
+      padding: 12px 28px;
+      background-color: #00695c;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      margin-top: 15px;
+      font-weight: bold;
+      font-size: 1em;
+      transition: background-color 0.3s ease;
+    }
+
+    .btn:hover {
+      background-color: #004d40;
+    }
+
+    .result {
+      margin-top: 30px;
+      font-size: 1.8em;
+      font-weight: bold;
+      color: #d32f2f;
+      min-height: 2em;
+    }
+
+    .trick, .score {
+      margin-top: 10px;
+      font-size: 1.2em;
+    }
+
+    select {
+      margin: 5px;
+      padding: 6px 8px;
+      font-size: 1em;
+      border-radius: 5px;
+      border: 1px solid #00695c;
+    }
+
+    /* Animation container for surfer doing tricks */
+    .animation {
+      margin-top: 20px;
+      font-size: 5em;
+      height: 90px; /* space for emoji */
+      position: relative;
+    }
+
+    /* Simple jump animation */
+    @keyframes jump {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-30px); }
+    }
+    /* Simple spin animation */
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      50% { transform: rotate(180deg) translateY(-30px); }
+      100% { transform: rotate(360deg) translateY(0); }
+    }
+
+    .jump {
+      animation: jump 1s ease-in-out forwards;
+    }
+    .spin {
+      animation: spin 1s ease-in-out forwards;
+    }
+
+    /* Confetti */
+    canvas#confettiCanvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      pointer-events: none;
+      z-index: 1000;
+    }
+  </style>
+</head>
+<body>
+
+<!-- Background music -->
+<audio id="backgroundMusic" autoplay loop muted>
+  <source src="ocean.mp3" type="audio/mp3">
+</audio>
+<button onclick="enableMusic()">Play Music</button>
+
+<audio id="winSound">
+  <source src="victory.mp3" type="audio/mp3">
+</audio>
+
+
+<div class="container">
+  <h1>Surfer Trick Competition</h1>
+  <p>Select <strong>3 tricks</strong> for each surfer and then start the competition!</p>
+
+  <div class="surfer" id="surfer1">
+    <h2>Surfer 1</h2>
+    <select id="select1-1"></select>
+    <select id="select1-2"></select>
+    <select id="select1-3"></select>
+    <div class="animation" id="anim1">🏄‍♂️</div>
+    <div class="trick" id="trick1">No tricks yet...</div>
+    <div class="score" id="score1"></div>
+  </div>
+
+  <div class="surfer" id="surfer2">
+    <h2>Surfer 2</h2>
+    <select id="select2-1"></select>
+    <select id="select2-2"></select>
+    <select id="select2-3"></select>
+    <div class="animation" id="anim2">🏄‍♂️</div>
+    <div class="trick" id="trick2">No tricks yet...</div>
+    <div class="score" id="score2"></div>
+  </div>
+
+  <div class="surfer" id="surfer3">
+    <h2>Surfer 3</h2>
+    <select id="select3-1"></select>
+    <select id="select3-2"></select>
+    <select id="select3-3"></select>
+    <div class="animation" id="anim3">🏄‍♂️</div>
+    <div class="trick" id="trick3">No tricks yet...</div>
+    <div class="score" id="score3"></div>
+  </div>
+
+  <button class="btn" onclick="startCompetition()">Start Competition</button>
+  <div class="result" id="winner"></div>
+</div>
+
+<!-- Confetti canvas -->
+<canvas id="confettiCanvas"></canvas>
+
+<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.4.0/dist/confetti.browser.min.js"></script>
+
+
+
+<script>
+  const tricks = [
+    { name: 'Wave Jump', score: 80, animation: 'jump' },
+    { name: 'Barrel Roll', score: 90, animation: 'spin' },
+    { name: 'Frontside Air', score: 75, animation: 'jump' },
+    { name: 'Backside Air', score: 85, animation: 'spin' },
+    { name: 'The Drop', score: 95, animation: 'jump' },
+    { name: 'Shuvit', score: 70, animation: 'spin' },
+    { name: 'Floater', score: 88, animation: 'jump' },
+    { name: 'Cutback', score: 78, animation: 'spin' },
+    { name: 'Tube Ride', score: 92, animation: 'jump' },
+    { name: '360 Spin', score: 83, animation: 'spin' },
+    { name: 'Layback Snap', score: 76, animation: 'jump' },
+    { name: 'Air Reverse', score: 89, animation: 'spin' }
+  ];
+
+  // Background Music Control
+  const backgroundMusic = document.getElementById("backgroundMusic");
+  backgroundMusic.volume = 0.5; // Adjust the volume (0.0 to 1.0)
+
+  function enableMusic() {
+    const audio = document.getElementById("backgroundMusic");
+    audio.muted = false;
+    audio.play();
+  }
+
+  function disableMusic() {
+    const audio = document.getElementById("backgroundMusic");
+    audio.muted = true;
+    audio.play();
+  }
+
+
+
+  function populateSelects() {
+    for (let surfer = 1; surfer <= 3; surfer++) {
+      for (let i = 1; i <= 3; i++) {
+        const select = document.getElementById(`select${surfer}-${i}`);
+        select.innerHTML = ''; // Clear existing options if any
+        tricks.forEach((trick, index) => {
+          const option = document.createElement("option");
+          option.value = index;
+          option.text = trick.name;
+          select.appendChild(option);
+        });
+      }
+    }
+  }
+
+  async function playTrickAnimation(animElement, animationName) {
+    return new Promise(resolve => {
+      // Reset animation class (even if already removed)
+      animElement.classList.remove('jump', 'spin');
+
+      // Force reflow to restart animation
+      void animElement.offsetWidth;
+
+      animElement.classList.add(animationName);
+
+      function onAnimationEnd() {
+        animElement.classList.remove(animationName);
+        animElement.removeEventListener('animationend', onAnimationEnd);
+        resolve();
+      }
+      animElement.addEventListener('animationend', onAnimationEnd);
+    });
+  }
+
+
+  async function startCompetition() {
+    const scores = [];
+    const allSelectedTricks = [];
+
+    // Disable button while animation runs
+    const btn = document.querySelector('.btn');
+    btn.disabled = true;
+    btn.textContent = 'Competition Running...';
+
+    for (let surfer = 1; surfer <= 3; surfer++) {
+      const selectedTricks = [];
+
+      for (let i = 1; i <= 3; i++) {
+        const val = document.getElementById(`select${surfer}-${i}`).value;
+        selectedTricks.push(tricks[val]);
+      }
+      allSelectedTricks.push(selectedTricks);
+    }
+
+    // Play animations for each surfer sequentially
+    for (let surfer = 1; surfer <= 3; surfer++) {
+      const animElement = document.getElementById(`anim${surfer}`);
+      const selectedTricks = allSelectedTricks[surfer - 1];
+
+      for (const trick of selectedTricks) {
+        animElement.title = trick.name; // show trick name on hover
+        await playTrickAnimation(animElement, trick.animation);
+      }
+
+      const trickNames = selectedTricks.map(t => t.name).join(', ');
+      const totalScore = selectedTricks.reduce((sum, t) => sum + t.score, 0);
+
+      document.getElementById(`trick${surfer}`).textContent = `Tricks: ${trickNames}`;
+      document.getElementById(`score${surfer}`).textContent = `Total Score: ${totalScore}`;
+      scores.push(totalScore);
+    }
+
+    const highest = Math.max(...scores);
+    const winners = scores
+      .map((score, i) => (score === highest ? i + 1 : null))
+      .filter(n => n !== null);
+
+    const winnerText = winners.length === 1
+      ? `Winner: Surfer ${winners[0]}!`
+      : `It's a tie between surfers ${winners.join(" & ")}!`;
+
+    document.getElementById("winner").textContent = winnerText;
+    disableMusic();
+    document.getElementById("winSound").play();
+
+
+
+    // Play sound and confetti if there's a winner
+    winSound.play();
+    playConfetti();
+
+    // Re-enable button
+    btn.disabled = false;
+    btn.textContent = 'Start Competition';
+  }
+
+  populateSelects();
+</script>
+
+</body>
+</html>
