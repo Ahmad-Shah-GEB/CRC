@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Smiski Ring Toss</title>
+  <style>
+    body {
+      font-family: 'Comic Sans MS', cursive, sans-serif;
+      background-color: #f0f8ff;
+      text-align: center;
+      padding: 20px;
+      margin: 0;
+      overflow-x: hidden;
+      position: relative;
+      min-height: 100vh;
+    }
+
+    h1 {
+      font-size: 3em;
+      color: #5eaa7f;
+      margin-bottom: 10px;
+    }
+
+    #score, #rings-left, #timer, #level-display {
+      font-size: 1.5em;
+      margin: 10px 0;
+    }
+
+    #game-wrapper {
+      display: flex;
+      justify-content: center;
+      align-items: flex-end;
+      gap: 60px;
+      max-width: 500px;
+      margin: 0 auto 20px auto;
+      position: relative;
+      z-index: 1;
+    }
+
+    #game-area {
+      position: relative;
+      width: 320px;
+      height: 480px;
+      background: #e0ffe0;
+      border-radius: 20px;
+      overflow: hidden;
+      border: 6px solid #5eaa7f;
+      box-shadow:
+        inset 6px 6px 12px #a6d3b6,
+        inset -6px -6px 12px #7ebf8e,
+        8px 8px 15px rgba(0, 0, 0, 0.2);
+      z-index: 2;
+    }
+
+    #target {
+      width: 140px;
+      height: 195px;
+      background-image: url('https://res.cloudinary.com/dtjjgiitl/image/upload/q_auto:good,f_auto,fl_progressive/v1753309834/d9ny8bz0grula6ydocgm.jpg');
+      background-size: contain;
+      background-repeat: no-repeat;
+      background-position: center bottom;
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 5;
+      transition: transform 0.1s ease, box-shadow 0.3s ease;
+    }
+
+    #target.hit {
+      box-shadow: 0 0 20px 6px #4caf50;
+    }
+
+    #target.miss {
+      box-shadow: 0 0 20px 6px #f44336;
+    }
+
+    .ring-half {
+      width: 50px;
+      height: 25px;
+      border: 5px solid #2e7d32;
+      border-bottom: none;
+      border-radius: 50px 50px 0 0;
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      box-sizing: border-box;
+      box-shadow: 0 0 8px #2e7d32, 0 0 15px #4caf50, 0 0 20px #81c784;
+      pointer-events: none;
+      background: transparent;
+    }
+
+    .ring-back { z-index: 3; }
+    .ring-front { z-index: 6; }
+
+    button {
+      padding: 10px 20px;
+      font-size: 1em;
+      background-color: #5eaa7f;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+
+    button:hover {
+      background-color: #4e9e71;
+    }
+
+    #message {
+      font-size: 1.2em;
+      margin-bottom: 10px;
+      color: #4caf50;
+      font-weight: bold;
+      min-height: 1.5em;
+    }
+
+    #play-again {
+      display: none;
+      margin-top: 15px;
+      background-color: #388e3c;
+    }
+
+    #play-again:hover {
+      background-color: #2e7d32;
+    }
+
+    #play-music-btn {
+      background-color: #00796b;
+      margin-top: 20px;
+    }
+
+    #play-music-btn:hover {
+      background-color: #004d40;
+    }
+
+    .overlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(255,255,255,0.95);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 9999;
+      padding: 30px;
+      box-sizing: border-box;
+    }
+
+    .overlay h2 {
+      font-size: 2em;
+      margin-bottom: 20px;
+      color: #388e3c;
+    }
+
+    .overlay p {
+      font-size: 1.3em;
+      margin-bottom: 30px;
+      max-width: 400px;
+      color: #555;
+      line-height: 1.4;
+    }
+
+    #confetti {
+      pointer-events: none;
+      position: fixed;
+      top: 0; left: 0;
+      width: 100vw;
+      height: 100vh;
+      overflow: visible;
+      z-index: 10000;
+    }
+
+    .confetti-piece {
+      position: absolute;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      opacity: 0.9;
+      animation: fall 1.5s forwards;
+    }
+
+    @keyframes fall {
+      0% {
+        transform: translateY(0) rotate(0deg);
+        opacity: 0.9;
+      }
+      100% {
+        transform: translateY(150vh) rotate(360deg);
+        opacity: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1>Smiski Ring Toss</h1>
+  <div id="message"></div>
+  <button id="play-music-btn">🎵 Play Music</button>
+  <iframe id="yt-player" width="0" height="0" style="display:none;" src="https://www.youtube.com/embed/MYPVQccHhAQ?enablejsapi=1&autoplay=1&loop=1&playlist=MYPVQccHhAQ&mute=1&controls=0" frameborder="0" allow="autoplay"></iframe>
+
+  <div id="game-wrapper">
+    <div id="game-area">
+      <div id="target"></div>
+    </div>
+  </div>
+
+  <div id="level-display">Level: 1</div>
+  <div id="score">Rings Stacked: 0</div>
+  <div id="rings-left">Rings Left: 25</div>
+  <div id="timer">Time Left: 30s</div>
+  <button id="toss-btn" disabled>Toss Ring</button>
+
+  <!-- Welcome Overlay -->
+  <div id="welcome-overlay" class="overlay">
+    <h2>Welcome to Smiski Ring Toss!</h2>
+    <p>The objective is to get 15 rings on Smiski, in under 30 seconds! You have 25 rings to attempt!<br><br>PS: Each level increases in difficulty!</p>
+    <button id="start-game-btn">Start Game</button>
+  </div>
+
+  <!-- Level Complete Overlay -->
+  <div id="level-complete-overlay" class="overlay" style="display:none;">
+    <h2>Level Complete!</h2>
+    <p id="level-complete-text"></p>
+    <button id="next-level-btn">Next Level</button>
+  </div>
+
+  <!-- End Overlay -->
+  <div id="end-overlay" class="overlay" style="display:none;">
+    <h2>Game Over</h2>
+    <p id="end-message"></p>
+    <button id="end-play-again-btn">Back to Home</button>
+  </div>
+
+  <!-- Confetti -->
+  <div id="confetti"></div>
+
+  <script>
+    let player;
+    const playMusicBtn = document.getElementById('play-music-btn');
+    function onYouTubeIframeAPIReady() {
+      player = new YT.Player('yt-player');
+    }
+    playMusicBtn.addEventListener('click', () => {
+      if (player && player.unMute) {
+        player.unMute();
+        player.setVolume(50);
+        playMusicBtn.style.display = 'none';
+      }
+    });
+    const tag = document.createElement('script');
+    tag.src = "https://www.youtube.com/iframe_api";
+    const firstScriptTag = document.getElementsByTagName('script')[0];
+    firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+  </script>
+  <script>
+    const gameArea = document.getElementById('game-area');
+    const target = document.getElementById('target');
+    const tossBtn = document.getElementById('toss-btn');
+    const scoreDisplay = document.getElementById('score');
+    const ringsLeftDisplay = document.getElementById('rings-left');
+    const timerDisplay = document.getElementById('timer');
+    const message = document.getElementById('message');
+    const levelDisplay = document.getElementById('level-display');
+
+    const welcomeOverlay = document.getElementById('welcome-overlay');
+    const startGameBtn = document.getElementById('start-game-btn');
+    const levelCompleteOverlay = document.getElementById('level-complete-overlay');
+    const levelCompleteText = document.getElementById('level-complete-text');
+    const nextLevelBtn = document.getElementById('next-level-btn');
+    const endOverlay = document.getElementById('end-overlay');
+    const endPlayAgainBtn = document.getElementById('end-play-again-btn');
+    const endMessage = document.getElementById('end-message');
+
+    const confettiContainer = document.getElementById('confetti');
+
+    let score, ringsLeft, timeLeft, ringCount, gameActive;
+    let smiskiPos, direction, speed;
+    let timerTimeout;
+    let currentLevel = 1;
+    const maxLevels = 5;
+    const ringsToStack = 15;
+
+    const successSound = new Audio('https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg');
+    const failSound = new Audio('https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg');
+
+    function initGame(level = 1) {
+      score = 0;
+      ringsLeft = 25;
+      timeLeft = 30;
+      ringCount = 0;
+      gameActive = true;
+      currentLevel = level;
+
+      scoreDisplay.textContent = `Rings Stacked: ${score}`;
+      ringsLeftDisplay.textContent = `Rings Left: ${ringsLeft}`;
+      timerDisplay.textContent = `Time Left: ${timeLeft}s`;
+      levelDisplay.textContent = `Level: ${currentLevel}`;
+      message.textContent = '';
+      tossBtn.disabled = false;
+
+      smiskiPos = 50;
+      direction = 1;
+      speed = 0.15 + (currentLevel - 1) * 0.1;
+
+      while (target.firstChild) {
+        target.removeChild(target.firstChild);
+      }
+
+      target.style.left = '50%';
+      target.style.transform = 'translateX(-50%)';
+
+      moveSmiski();
+      startTimer();
+    }
+
+    function moveSmiski() {
+      if (!gameActive) return;
+      speed = Math.min(2, speed + 0.0005);
+      smiskiPos += direction * speed;
+      if (smiskiPos >= 100) {
+        smiskiPos = 100;
+        direction = -1;
+      } else if (smiskiPos <= 0) {
+        smiskiPos = 0;
+        direction = 1;
+      }
+
+      const gameAreaWidth = gameArea.clientWidth;
+      const smiskiWidth = target.clientWidth;
+      let pixelPos = (smiskiPos / 100) * gameAreaWidth;
+      pixelPos = Math.min(gameAreaWidth - smiskiWidth / 2, Math.max(smiskiWidth / 2, pixelPos));
+
+      target.style.left = `${pixelPos}px`;
+      target.style.transform = 'translateX(-50%)';
+
+      updateStackedRings();
+      requestAnimationFrame(moveSmiski);
+    }
+
+    function startTimer() {
+      if (!gameActive) return;
+      if (timeLeft <= 0) {
+        endGame("Time's up! Game Over.");
+        return;
+      }
+      timerDisplay.textContent = `Time Left: ${timeLeft}s`;
+      timeLeft--;
+      timerTimeout = setTimeout(startTimer, 1000);
+    }
+
+    function tossRing() {
+      if (!gameActive || ringsLeft <= 0) return;
+      ringsLeft--;
+      ringsLeftDisplay.textContent = `Rings Left: ${ringsLeft}`;
+
+      const ringBack = document.createElement('div');
+      ringBack.classList.add('ring-half', 'ring-back');
+      ringBack.style.bottom = '20px';
+
+      const ringFront = document.createElement('div');
+      ringFront.classList.add('ring-half', 'ring-front');
+      ringFront.style.bottom = '20px';
+
+      gameArea.appendChild(ringBack);
+      gameArea.appendChild(ringFront);
+
+      let posY = 20;
+      const maxHeight = 280;
+
+      function animateRing() {
+        if (!gameActive) {
+          ringBack.remove();
+          ringFront.remove();
+          return;
+        }
+
+        if (posY < maxHeight) {
+          posY += 12;
+          ringBack.style.bottom = `${posY}px`;
+          ringFront.style.bottom = `${posY}px`;
+          requestAnimationFrame(animateRing);
+        } else {
+          const baseTolerance = 40;
+          const toleranceReduction = (currentLevel - 1) * 4;
+          const tolerance = Math.max(10, baseTolerance - toleranceReduction);
+
+          // Updated hit logic: compare Smiski center to gameArea center
+          const smiskiCenter = target.offsetLeft + target.clientWidth / 2;
+          const gameAreaCenter = gameArea.offsetLeft + gameArea.clientWidth / 2;
+
+          if (Math.abs(smiskiCenter - gameAreaCenter) < tolerance) {
+            successSound.play();
+            score++;
+            scoreDisplay.textContent = `Rings Stacked: ${score}`;
+            message.textContent = 'Great throw!';
+            ringCount++;
+            updateStackedRings();
+
+            target.classList.add('hit');
+            setTimeout(() => target.classList.remove('hit'), 400);
+
+            if (score >= ringsToStack) {
+              endLevel(true);
+            }
+          } else {
+            failSound.play();
+            message.textContent = 'Missed! Try again.';
+            target.classList.add('miss');
+            setTimeout(() => target.classList.remove('miss'), 400);
+          }
+
+          ringBack.remove();
+          ringFront.remove();
+
+          if (ringsLeft <= 0) {
+            endGame("No rings left! Game Over.");
+          }
+        }
+      }
+
+      animateRing();
+    }
+
+    function updateStackedRings() {
+      const oldRings = target.querySelectorAll('.stacked-ring');
+      oldRings.forEach(r => r.remove());
+
+      for (let i = 0; i < ringCount; i++) {
+        const ring = document.createElement('div');
+        ring.classList.add('ring-half', 'ring-front', 'stacked-ring');
+        ring.style.position = 'absolute';
+        ring.style.left = '50%';
+        ring.style.transform = 'translateX(-50%)';
+        ring.style.bottom = `${60 + i * 12}px`;
+        target.appendChild(ring);
+      }
+    }
+
+    function endLevel(success) {
+      gameActive = false;
+      clearTimeout(timerTimeout);
+      tossBtn.disabled = true;
+
+      if (success) {
+        levelCompleteText.textContent = `You reached Level ${currentLevel}! Well done!`;
+        levelCompleteOverlay.style.display = 'flex';
+        launchConfetti();
+      } else {
+        endGame("Game Over. Try again!");
+      }
+    }
+
+    function endGame(msg) {
+      gameActive = false;
+      clearTimeout(timerTimeout);
+      tossBtn.disabled = true;
+      endMessage.textContent = msg;
+      endOverlay.style.display = 'flex';
+      message.textContent = '';
+      welcomeOverlay.style.display = 'flex';
+    }
+
+    function launchConfetti() {
+      const colors = ['#4caf50', '#81c784', '#388e3c', '#a5d6a7', '#2e7d32'];
+      const count = 100;
+      for (let i = 0; i < count; i++) {
+        const confetti = document.createElement('div');
+        confetti.classList.add('confetti-piece');
+        confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+        confetti.style.left = `${Math.random() * window.innerWidth}px`;
+        confetti.style.top = `${Math.random() * 50}px`;
+        confetti.style.animationDelay = `${Math.random() * 1.5}s`;
+        confetti.style.opacity = 1;
+        confettiContainer.appendChild(confetti);
+
+        setTimeout(() => {
+          confetti.remove();
+        }, 2000);
+      }
+    }
+
+    tossBtn.addEventListener('click', tossRing);
+
+    startGameBtn.addEventListener('click', () => {
+      welcomeOverlay.style.display = 'none';
+      endOverlay.style.display = 'none';
+      levelCompleteOverlay.style.display = 'none';
+      initGame(1);
+    });
+
+    nextLevelBtn.addEventListener('click', () => {
+      levelCompleteOverlay.style.display = 'none';
+      if (currentLevel < maxLevels) {
+        initGame(currentLevel + 1);
+      } else {
+        endGame("Congratulations! You completed all levels!");
+      }
+    });
+
+    endPlayAgainBtn.addEventListener('click', () => {
+      endOverlay.style.display = 'none';
+      welcomeOverlay.style.display = 'flex';
+    });
+  </script>
+</body>
+</html>
