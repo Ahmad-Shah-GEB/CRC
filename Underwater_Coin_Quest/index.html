@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Aquarium Game</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      overflow: hidden;
+      background-image: url('nemohome.png'); /* Change this to your background image */
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      height: 100vh;
+      position: relative;
+      user-select: none; /* Disable text selection while dragging */
+      font-family: Arial, sans-serif;
+    }
+
+    /* Title at the top */
+    #gameTitle {
+      position: fixed;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      color: white;
+      font-size: 28px;
+      font-weight: bold;
+      text-shadow: 0 0 5px black;
+      z-index: 1200;
+      user-select: none;
+      pointer-events: none;
+    }
+
+    .bubble {
+      position: absolute;
+      bottom: 0;
+      background-color: rgba(255, 255, 255, 0.6);
+      border-radius: 50%;
+      animation: rise 10s linear infinite;
+      pointer-events: none;
+    }
+
+    @keyframes rise {
+      0% {
+        transform: translateY(0) scale(1);
+        opacity: 1;
+      }
+      100% {
+        transform: translateY(-100vh) scale(0.5);
+        opacity: 0;
+      }
+    }
+
+    .fish, .fish2, .fish3 {
+      position: absolute;
+      visibility: hidden;
+      animation: swim 20s linear infinite;
+      animation-fill-mode: forwards;
+      pointer-events: none; /* So player drags don't interfere */
+    }
+
+    .fish {
+      width: 80px;
+    }
+
+    .fish2 {
+      width: 250px;
+    }
+    .fish3 {
+      width: 320px;
+    }
+
+    @keyframes swim {
+      0% {
+        visibility: visible;
+        transform: translateX(-100px) scaleX(1);
+      }
+      50% {
+        transform: translateX(100vw) scaleX(1);
+      }
+      51% {
+        transform: translateX(100vw) scaleX(-1);
+      }
+      100% {
+        transform: translateX(-100px) scaleX(-1);
+      }
+    }
+
+    /* Coin styles */
+    .coin {
+      position: absolute;
+      font-size: 24px;
+      pointer-events: none;
+      user-select: none;
+      will-change: transform;
+    }
+
+    /* Player styles */
+    #player {
+      position: absolute;
+      width: 170px;
+      height: 170px;
+      cursor: grab;
+      z-index: 1000;
+      user-select: none;
+      touch-action: none; /* for touch devices */
+    }
+
+    /* Score display */
+    #scoreboard {
+      position: fixed;
+      top: 50px; /* pushed down to not overlap title */
+      left: 10px;
+      color: white;
+      font-size: 20px;
+      font-family: Arial, sans-serif;
+      text-shadow: 0 0 5px black;
+      z-index: 1100;
+      user-select: none;
+    }
+
+    /* Restart button styles */
+    #restartButton {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background-color: #007BFF; /* Bootstrap blue */
+      border: none;
+      padding: 20px 40px;
+      font-size: 24px;
+      font-weight: bold;
+      color: white;
+      cursor: pointer;
+      border-radius: 8px;
+      display: none; /* hidden by default */
+      z-index: 2000;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+      user-select: none;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Title -->
+  <div id="gameTitle">Get coins but don't touch the fish!</div>
+
+  <!-- Fish Images -->
+  <img src="nemo.png" class="fish" style="top: 20%; animation-delay: 0s;" />
+  <img src="dory.png" class="fish" style="top: 40%; animation-delay: 2s;" />
+  <img src="turtle.png" class="fish2" style="top: 60%; animation-delay: 4s;" />
+  <img src="octopus.png" class="fish3" style="top: 80%; animation-delay: 1s;" />
+
+  <!-- Player Image -->
+  <img src="net.png" id="player" style="top: 50%; left: 50%;" draggable="false" alt="player" />
+
+  <!-- Scoreboard -->
+  <div id="scoreboard">Score: 0 | High Score: 0</div>
+
+  <!-- Restart Button -->
+  <button id="restartButton">Restart</button>
+
+  <script>
+    // Generate bubbles
+    for (let i = 0; i < 40; i++) {
+      const bubble = document.createElement('div');
+      bubble.classList.add('bubble');
+      const size = Math.random() * 8 + 4;
+      bubble.style.width = `${size}px`;
+      bubble.style.height = `${size}px`;
+      bubble.style.left = `${Math.random() * 100}vw`;
+      bubble.style.animationDuration = `${Math.random() * 5 + 5}s`;
+      bubble.style.animationDelay = `${Math.random() * 10}s`;
+      document.body.appendChild(bubble);
+    }
+
+    const fishes = document.querySelectorAll('.fish, .fish2, .fish3');
+    let mouseX = 0, mouseY = 0;
+
+    window.addEventListener('mousemove', e => {
+      mouseX = e.clientX;
+      mouseY = e.clientY;
+    });
+
+    function getFishCenter(fish) {
+      const rect = fish.getBoundingClientRect();
+      return {
+        x: rect.left + rect.width / 2,
+        y: rect.top + rect.height / 2
+      };
+    }
+
+    const fishStates = new Map();
+
+    fishes.forEach(fish => {
+      const rect = fish.getBoundingClientRect();
+      fishStates.set(fish, {
+        scared: false,
+        returning: false,
+        posX: rect.left,
+        posY: rect.top,
+        originalX: rect.left,
+        originalY: rect.top
+      });
+      fish.style.left = `${rect.left}px`;
+      fish.style.top = `${rect.top}px`;
+      fish.style.animationPlayState = 'running';
+    });
+
+    // Animate fishes with downward escape and return
+    function animateFishes() {
+      fishes.forEach(fish => {
+        const state = fishStates.get(fish);
+        const fishCenter = getFishCenter(fish);
+
+        const dx = fishCenter.x - mouseX;
+        const dy = fishCenter.y - mouseY;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        const fearRadius = 150;
+
+        if (distance < fearRadius) {
+          if (!state.scared) {
+            fish.style.animationPlayState = 'paused';
+
+            const rect = fish.getBoundingClientRect();
+            state.posX = rect.left;
+            state.posY = rect.top;
+
+            state.scared = true;
+            state.returning = false;
+          }
+
+          // Move smoothly downward
+          state.posY += 2;
+          const maxY = window.innerHeight - fish.offsetHeight;
+          state.posY = Math.min(state.posY, maxY);
+
+          fish.style.top = `${state.posY}px`;
+
+        } else {
+          if (state.scared && !state.returning) {
+            state.returning = true;
+          }
+
+          if (state.returning) {
+            const dyBack = state.originalY - state.posY;
+            const distBack = Math.abs(dyBack);
+
+            if (distBack > 2) {
+              state.posY += dyBack > 0 ? 2 : -2;
+              fish.style.top = `${state.posY}px`;
+            } else {
+              fish.style.top = `${state.originalY}px`;
+              fish.style.animationPlayState = 'running';
+              state.scared = false;
+              state.returning = false;
+            }
+          }
+        }
+      });
+
+      requestAnimationFrame(animateFishes);
+    }
+
+    animateFishes();
+
+    // --- Coins Setup ---
+    const coinCount = 15;
+    const coins = [];
+    const coinSize = 24; // font size in px (same as CSS .coin font-size)
+
+    function randomPosition() {
+      return {
+        x: Math.random() * (window.innerWidth - coinSize),
+        y: Math.random() * (window.innerHeight - coinSize)
+      };
+    }
+
+    for(let i = 0; i < coinCount; i++) {
+      const coin = document.createElement('div');
+      coin.classList.add('coin');
+      coin.textContent = "🪙"; // coin emoji
+      const pos = randomPosition();
+      coin.style.left = `${pos.x}px`;
+      coin.style.top = `${pos.y}px`;
+      document.body.appendChild(coin);
+
+      coins.push({
+        element: coin,
+        x: pos.x,
+        y: pos.y,
+        vx: (Math.random() - 0.5) * 1, // small random drift
+        vy: (Math.random() - 0.5) * 1
+      });
+    }
+
+    // Animate coins floating slowly
+    function animateCoins() {
+      coins.forEach(c => {
+        c.x += c.vx;
+        c.y += c.vy;
+
+        // Bounce off edges
+        if (c.x <= 0 || c.x >= window.innerWidth - coinSize) c.vx *= -1;
+        if (c.y <= 0 || c.y >= window.innerHeight - coinSize) c.vy *= -1;
+
+        c.element.style.left = `${c.x}px`;
+        c.element.style.top = `${c.y}px`;
+      });
+
+      requestAnimationFrame(animateCoins);
+    }
+
+    animateCoins();
+
+    // --- Player Setup ---
+    const player = document.getElementById('player');
+    let isDragging = false;
+    let dragOffsetX = 0;
+    let dragOffsetY = 0;
+
+    function clamp(value, min, max) {
+      return Math.min(Math.max(value, min), max);
+    }
+
+    player.addEventListener('mousedown', (e) => {
+      isDragging = true;
+      dragOffsetX = e.clientX - player.offsetLeft;
+      dragOffsetY = e.clientY - player.offsetTop;
+      player.style.cursor = 'grabbing';
+    });
+
+    window.addEventListener('mouseup', () => {
+      isDragging = false;
+      player.style.cursor = 'grab';
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (!isDragging) return;
+      let newX = e.clientX - dragOffsetX;
+      let newY = e.clientY - dragOffsetY;
+
+      // Clamp inside viewport
+      newX = clamp(newX, 0, window.innerWidth - player.offsetWidth);
+      newY = clamp(newY, 0, window.innerHeight - player.offsetHeight);
+
+      player.style.left = `${newX}px`;
+      player.style.top = `${newY}px`;
+    });
+
+    // Support touch events for mobile drag
+    player.addEventListener('touchstart', e => {
+      e.preventDefault();
+      isDragging = true;
+      const touch = e.touches[0];
+      dragOffsetX = touch.clientX - player.offsetLeft;
+      dragOffsetY = touch.clientY - player.offsetTop;
+    });
+
+    window.addEventListener('touchend', e => {
+      isDragging = false;
+    });
+
+    window.addEventListener('touchmove', e => {
+      if (!isDragging) return;
+      const touch = e.touches[0];
+      let newX = touch.clientX - dragOffsetX;
+      let newY = touch.clientY - dragOffsetY;
+      newX = clamp(newX, 0, window.innerWidth - player.offsetWidth);
+      newY = clamp(newY, 0, window.innerHeight - player.offsetHeight);
+      player.style.left = `${newX}px`;
+      player.style.top = `${newY}px`;
+    });
+
+    // --- Collision Detection ---
+    let score = 0;
+    let highScore = 0;
+    const scoreboard = document.getElementById('scoreboard');
+    const restartButton = document.getElementById('restartButton');
+
+    function rectsOverlap(r1, r2) {
+      return !(r2.left > r1.right ||
+               r2.right < r1.left ||
+               r2.top > r1.bottom ||
+               r2.bottom < r1.top);
+    }
+
+    // Reposition coin to a new random spot
+    function repositionCoin(coinObj) {
+      const pos = randomPosition();
+      coinObj.x = pos.x;
+      coinObj.y = pos.y;
+      coinObj.element.style.left = `${pos.x}px`;
+      coinObj.element.style.top = `${pos.y}px`;
+    }
+
+    function updateScoreboard() {
+      scoreboard.textContent = `Score: ${score} | High Score: ${highScore}`;
+    }
+
+    function checkCollisions() {
+      const playerRect = player.getBoundingClientRect();
+
+      // Check collision with coins
+      for(let i = 0; i < coins.length; i++) {
+        const coin = coins[i];
+        const coinRect = coin.element.getBoundingClientRect();
+
+        if (rectsOverlap(playerRect, coinRect)) {
+          score++;
+          if (score > highScore) {
+            highScore = score;
+          }
+          updateScoreboard();
+
+          // Respawn coin somewhere else
+          repositionCoin(coin);
+        }
+      }
+
+      // Check collision with fishes
+      for (const fish of fishes) {
+        const fishRect = fish.getBoundingClientRect();
+        if (rectsOverlap(playerRect, fishRect)) {
+          // Stop game loop and show restart button
+          gameRunning = false;
+          restartButton.style.display = 'block';
+          return;
+        }
+      }
+    }
+
+    // Game running flag
+    let gameRunning = true;
+
+    function gameLoop() {
+      if (gameRunning) {
+        checkCollisions();
+        requestAnimationFrame(gameLoop);
+      }
+    }
+
+    restartButton.addEventListener('click', () => {
+      restartButton.style.display = 'none';
+      resetGame();
+      gameRunning = true;
+      gameLoop();
+    });
+
+    function resetGame() {
+      // Reset player position to center
+      player.style.left = `${window.innerWidth/2 - player.offsetWidth/2}px`;
+      player.style.top = `${window.innerHeight/2 - player.offsetHeight/2}px`;
+
+      // Reset score only, keep highScore
+      score = 0;
+      updateScoreboard();
+
+      // Reset coin positions instead of recreating coins
+      coins.forEach(c => repositionCoin(c));
+    }
+
+    // Start game
+    resetGame();
+    gameLoop();
+
+  </script>
+</body>
+</html>
