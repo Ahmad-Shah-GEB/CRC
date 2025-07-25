@@ -17,10 +17,13 @@
       width: 600px;
       height: 800px;
       margin: 20px auto;
-      background: #222;
+      background-image: url('road.jpg'); /* <-- Replace with your actual image */
+      background-size: cover;           /* Make it fill the area */
+      background-position: center;      /* Center the image */
       border: 5px solid #fff;
       overflow: hidden;
     }
+
 
     .car {
       position: absolute;
@@ -51,7 +54,8 @@
 </head>
 <body>
 
-<div id="scoreBoard">Score: 0 | Level: 1</div>
+<div id="scoreBoard">Score: 0 | Missed: 0 | Level: 1</div>
+
 <div id="game">
   <div class="car" id="car"></div>
 </div>
@@ -67,6 +71,9 @@
   let speed = 2;
   let coinFallSpeed = 2;
   let coins = [];
+  let missed = 0;
+  let gameOver = false;
+
 
   function createCoin() {
     const coin = document.createElement("div");
@@ -79,9 +86,9 @@
 
   function moveCar(e) {
     if (e.key === "ArrowLeft" && carX > 0) {
-      carX -= 20;
+      carX -= 50;
     } else if (e.key === "ArrowRight" && carX < 540) {
-      carX += 20;
+      carX += 50;
     }
     car.style.left = carX + "px";
   }
@@ -96,6 +103,8 @@
   }
 
   function update() {
+    if (gameOver) return;
+
     coins.forEach((coin, index) => {
       let y = parseInt(coin.style.top);
       coin.style.top = (y + coinFallSpeed) + "px";
@@ -104,27 +113,34 @@
       const coinRect = coin.getBoundingClientRect();
 
       if (detectCollision(carRect, coinRect)) {
-        // Remove coin
         coin.remove();
         coins.splice(index, 1);
         score += 1;
         speed += 0.1;
         coinFallSpeed += 0.1;
 
-        // Level up every 10 coins
         if (score % 10 === 0) {
           level += 1;
         }
-
-        scoreBoard.textContent = `Score: ${score} | Level: ${level}`;
-      }
-
-      // Remove coin if it goes off-screen
-      if (y > 800) {
+      } else if (y > 800) {
         coin.remove();
         coins.splice(index, 1);
+        missed += 1;
+      }
+
+      // Update scoreboard
+      scoreBoard.textContent = `Score: ${score} | Missed: ${missed} | Level: ${level}`;
+
+      if (missed >= 50) {
+        endGame();
       }
     });
+  }
+
+  function endGame() {
+    gameOver = true;
+    alert(`Game Over! You missed 50 coins.\nFinal Score: ${score}`);
+    location.reload(); // or redirect to a restart screen
   }
 
   // Coin drop interval
