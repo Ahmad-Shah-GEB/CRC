@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Space Game</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body, html { width: 100%; height: 100%; overflow: hidden; font-family: Arial, sans-serif; }
+
+    #space-bg {
+      background: url('background.jpg') no-repeat center center;
+      background-size: cover;
+      width: 100%;
+      height: 100vh;
+      position: relative;
+    }
+
+    .centered {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      color: white;
+    }
+
+    .btn {
+      padding: 10px 20px;
+      margin: 10px;
+      font-size: 20px;
+      cursor: pointer;
+      background: rgba(255,255,255,0.2);
+      border: 2px solid white;
+      color: white;
+      border-radius: 8px;
+    }
+
+    .hidden { display: none; }
+
+    #gameCanvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    #lives {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      color: white;
+      font-size: 20px;
+    }
+
+    #next-level-screen {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      background-color: rgba(0, 0, 0, 0.8);
+      color: white;
+      padding: 40px;
+      border-radius: 20px;
+      z-index: 10;
+    }
+  </style>
+</head>
+<body>
+  <div id="space-bg">
+    <div id="start-screen" class="centered">
+      <h1>Enter Your Name</h1>
+      <input type="text" id="playerName" placeholder="Your Name" />
+      <br />
+      <button class="btn" onclick="startGame()">Start</button>
+    </div>
+
+    <div id="ship-selection" class="centered hidden">
+      <h2>Select Your Ship</h2>
+      <button class="btn" onclick="selectShip('blueship')">Blue Ship</button>
+    </div>
+
+    <div id="next-level-screen" class="hidden">
+      <h2 id="levelLabel"></h2>
+      <button class="btn" onclick="startNextLevel()">Next Level</button>
+    </div>
+
+    <canvas id="gameCanvas" class="hidden"></canvas>
+    <div id="lives" class="hidden">Lives: ❤️❤️❤️</div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    const backgroundImg = new Image();
+    backgroundImg.src = 'background.jpg';
+
+    const shipImg = new Image(); // ship image to use
+    shipImg.src = 'blueship.png';
+
+    const alienImg = new Image(); // ship image to use
+    alienImg.src = 'alien.png';
+
+
+    let playerX = canvas.width / 2 - 25;
+    let playerY = canvas.height - 100;
+    const playerWidth = 100;
+    const playerHeight = 100;
+    let playerSpeed = 8;
+
+    let playerShip = null;
+    let playerName = "";
+    let keys = {};
+    let bullets = [];
+    let aliens = [];
+    let lives = 3;
+    let level = 1;
+    let gameInterval;
+    const bgMusic = new Audio('background.mp3');
+    bgMusic.loop = true;
+    bgMusic.volume = 0.5; // optional: adjust volume from 0.0 to 1.0
+
+
+    function startGame() {
+      playerName = document.getElementById("playerName").value || "Player";
+      document.getElementById("start-screen").classList.add("hidden");
+      document.getElementById("ship-selection").classList.remove("hidden");
+
+      // Start background music
+      bgMusic.play().catch(() => {
+        console.log("Audio play was blocked. Waiting for user interaction.");
+      });
+    }
+
+    function selectShip(ship) {
+      playerShip = ship;
+      shipImg.src = `${ship}.png`; // dynamically load image
+      document.getElementById("ship-selection").classList.add("hidden");
+      document.getElementById("gameCanvas").classList.remove("hidden");
+      document.getElementById("lives").classList.remove("hidden");
+      initLevel();
+    }
+
+    function initLevel() {
+      bullets = [];
+      aliens = [];
+      for (let i = 0; i < level * 3; i++) {
+        aliens.push({
+          x: Math.random() * canvas.width,
+          y: Math.random() * canvas.height / 2,
+          dx: (Math.random() - 0.5) * 4,
+          dy: (Math.random() - 0.5) * 4
+        });
+      }
+      lives = 3;
+      updateLives();
+      drawGame();
+    }
+
+    function startNextLevel() {
+      document.getElementById("next-level-screen").classList.add("hidden");
+      initLevel();
+    }
+
+    function updateLives() {
+      document.getElementById("lives").textContent = `Lives: ${'❤️'.repeat(lives)}`;
+    }
+
+    function drawTiledBackground() {
+      const scale = 1.5; // adjust this to zoom (1 = original size, >1 = zoom in)
+      const scaledWidth = backgroundImg.width * scale;
+      const scaledHeight = backgroundImg.height * scale;
+
+      const x = (canvas.width - scaledWidth) / 2;
+      const y = (canvas.height - scaledHeight) / 2;
+
+      ctx.drawImage(backgroundImg, x, y, scaledWidth, scaledHeight);
+    }
+
+    function drawGame() {
+      gameInterval = setInterval(() => {
+        if (keys["ArrowLeft"] || keys["a"]) {
+          playerX -= playerSpeed;
+        }
+        if (keys["ArrowRight"] || keys["d"]) {
+          playerX += playerSpeed;
+        }
+        if (keys["ArrowUp"] || keys["w"]) {
+          playerY -= playerSpeed;
+        }
+        if (keys["ArrowDown"] || keys["s"]) {
+          playerY += playerSpeed;
+        }
+
+        playerX = Math.max(0, Math.min(canvas.width - playerWidth, playerX));
+        playerY = Math.max(0, Math.min(canvas.height - playerHeight, playerY));
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        drawTiledBackground();
+
+        // Draw player ship image
+        ctx.drawImage(shipImg, playerX, playerY, playerWidth, playerHeight);
+
+        // Draw and move bullets
+        ctx.fillStyle = "yellow";
+        for (let i = bullets.length - 1; i >= 0; i--) {
+          bullets[i].x += bullets[i].dx;
+          bullets[i].y += bullets[i].dy;
+          ctx.fillRect(bullets[i].x, bullets[i].y, 5, 5);
+          if (
+            bullets[i].x < 0 ||
+            bullets[i].x > canvas.width ||
+            bullets[i].y < 0 ||
+            bullets[i].y > canvas.height
+          ) {
+            bullets.splice(i, 1);
+          }
+        }
+
+        // Draw and move aliens
+        for (let j = aliens.length - 1; j >= 0; j--) {
+          const alien = aliens[j];
+          alien.x += alien.dx;
+          alien.y += alien.dy;
+          if (alien.x < 0 || alien.x > canvas.width) alien.dx *= -1;
+          if (alien.y < 0 || alien.y > canvas.height) alien.dy *= -1;
+
+          // Draw alien image instead of circle
+          ctx.drawImage(alienImg, alien.x - 25, alien.y - 25, 50, 50);
+
+          // Bullet collision
+          for (let k = bullets.length - 1; k >= 0; k--) {
+            const b = bullets[k];
+            if (
+              b.x >= alien.x - 25 &&
+              b.x <= alien.x + 25 &&
+              b.y >= alien.y - 25 &&
+              b.y <= alien.y + 25
+            ) {
+              bullets.splice(k, 1);
+              aliens.splice(j, 1);
+              break;
+            }
+          }
+
+          // Player collision
+          if (
+            alien.x > playerX &&
+            alien.x < playerX + playerWidth &&
+            alien.y > playerY &&
+            alien.y < playerY + playerHeight
+          ) {
+            lives--;
+            aliens.splice(j, 1);
+            updateLives();
+            if (lives <= 0) {
+              clearInterval(gameInterval);
+              alert("Game Over!");
+              location.reload();
+            }
+          }
+        }
+
+          // Bullet collision
+          for (let k = bullets.length - 1; k >= 0; k--) {
+            const b = bullets[k];
+            if (
+              b.x >= alien.x - 20 &&
+              b.x <= alien.x + 20 &&
+              b.y >= alien.y - 20 &&
+              b.y <= alien.y + 20
+            ) {
+              bullets.splice(k, 1);
+              aliens.splice(j, 1);
+              break;
+            }
+          }
+
+        // Level complete
+        if (aliens.length === 0) {
+          clearInterval(gameInterval);
+          document.getElementById("levelLabel").textContent = `Level ${level} Complete!`;
+          document.getElementById("next-level-screen").classList.remove("hidden");
+          level++;
+        }
+      }, 30);
+    }
+
+    window.addEventListener("keydown", e => keys[e.key] = true);
+    window.addEventListener("keyup", e => keys[e.key] = false);
+
+    canvas.addEventListener("click", (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+
+      const angle = Math.atan2(mouseY - (playerY + playerHeight / 2), mouseX - (playerX + playerWidth / 2));
+      const speed = 10;
+      const dx = Math.cos(angle) * speed;
+      const dy = Math.sin(angle) * speed;
+
+      bullets.push({
+        x: playerX + playerWidth / 2,
+        y: playerY + playerHeight / 2,
+        dx,
+        dy
+      });
+    });
+  </script>
+</body>
+</html>
