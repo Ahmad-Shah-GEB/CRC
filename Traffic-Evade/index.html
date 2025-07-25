@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>6-Lane Highway Evade Game</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: #333;
+      display: flex;
+      justify-content: center;
+      align-items: stretch;
+      height: 100vh;
+    }
+
+    #scoreBoard {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      font-size: 24px;
+      color: white;
+      font-family: Arial, sans-serif;
+      background: rgba(0, 0, 0, 0.5);
+      padding: 14px 24px;
+      border-radius: 12px;
+      z-index: 10;
+    }
+
+    #container {
+      display: flex;
+      height: 100vh;
+    }
+
+    .ground {
+      width: 250px;
+      height: 100vh;
+      background: repeating-linear-gradient(
+        to bottom,
+        #446633 0,
+        #446633 30px,
+        #335522 30px,
+        #335522 60px
+      );
+      animation: groundMove 1s linear infinite;
+    }
+
+    #groundLeft {
+      margin-right: 15px;
+      border: 5px solid #555;
+      border-right: none;
+      border-radius: 10px 0 0 10px;
+    }
+
+    #groundRight {
+      margin-left: 15px;
+      border: 5px solid #555;
+      border-left: none;
+      border-radius: 0 10px 10px 0;
+    }
+
+    #game {
+      position: relative;
+      width: 900px;
+      height: 100vh;
+      background: #222;
+      border: 5px solid #555;
+      overflow: hidden;
+    }
+
+    .lane-line {
+      position: absolute;
+      top: 0;
+      width: 6px;
+      height: 100%;
+      background: repeating-linear-gradient(
+        to bottom,
+        white 0,
+        white 30px,
+        transparent 30px,
+        transparent 60px
+      );
+      opacity: 0.5;
+    }
+
+    .car, .enemy {
+      width: 120px;
+      height: 180px;
+      position: absolute;
+      background-color: transparent;
+      border-radius: 10px;
+      background-size: contain;
+      background-position: center;
+      background-repeat: no-repeat;
+      box-shadow: none;
+    }
+
+    .car {
+      bottom: 20px;
+      transition: left 0.1s ease;
+      background-image: url('mario.png');
+    }
+
+    .enemy {
+      top: -190px;
+    }
+
+    @keyframes groundMove {
+      0% {
+        background-position: 0 0;
+      }
+      100% {
+        background-position: 0 60px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div id="scoreBoard">
+    Score: <span id="score">0</span><br>
+    High Score: <span id="highScore">0</span>
+  </div>
+
+  <audio id="bgMusic" preload="auto">
+    <source src="soundtrack.mp3" type="audio/mpeg">
+    Your browser does not support the audio element.
+  </audio>
+
+  <div id="container">
+    <div class="ground" id="groundLeft"></div>
+    <div id="game">
+      <div class="car" id="playerCar"></div>
+    </div>
+    <div class="ground" id="groundRight"></div>
+  </div>
+
+  <script>
+    const game = document.getElementById('game');
+    const player = document.getElementById('playerCar');
+    const scoreEl = document.getElementById('score');
+    const highScoreEl = document.getElementById('highScore');
+    const bgMusic = document.getElementById('bgMusic');
+
+    const laneWidth = 150;
+    const laneCount = 6;
+    const lanePositions = Array.from({ length: laneCount }, (_, i) => i * laneWidth);
+    let currentLane = 2;
+    let enemies = [];
+    let gameInterval, enemySpawnInterval, scoreInterval;
+    let score = 0;
+    const laneOffset = 18;
+    let musicStarted = false;
+
+    const enemyImages = ['luigi.png', 'yoshi.png', 'toad.png', 'koopa.png'];
+
+    // Load high score from localStorage
+    let highScore = localStorage.getItem('marioHighScore') || 0;
+    highScoreEl.textContent = highScore;
+
+    for (let i = 1; i < laneCount; i++) {
+      const line = document.createElement('div');
+      line.classList.add('lane-line');
+      line.style.left = `${i * laneWidth}px`;
+      game.appendChild(line);
+    }
+
+    player.style.left = (lanePositions[currentLane] + laneOffset) + 'px';
+
+    function movePlayer(dir) {
+      if (dir === 'left' && currentLane > 0) currentLane--;
+      else if (dir === 'right' && currentLane < laneCount - 1) currentLane++;
+      player.style.left = (lanePositions[currentLane] + laneOffset) + 'px';
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if (!musicStarted) {
+        bgMusic.play().catch(() => {});
+        musicStarted = true;
+      }
+      if (e.key === 'ArrowLeft' || e.key === 'a') movePlayer('left');
+      if (e.key === 'ArrowRight' || e.key === 'd') movePlayer('right');
+    });
+
+    function spawnEnemy() {
+      const lanes = [...Array(laneCount).keys()];
+      const numberOfEnemies = Math.floor(Math.random() * 3) + 1;
+      const chosenLanes = [];
+
+      while (chosenLanes.length < numberOfEnemies && lanes.length > 0) {
+        const lane = lanes.splice(Math.floor(Math.random() * lanes.length), 1)[0];
+
+        const isLaneClear = !enemies.some(enemy =>
+          enemy.lane === lane && enemy.top > -250
+        );
+
+        if (isLaneClear) {
+          const enemy = document.createElement('div');
+          enemy.classList.add('enemy');
+          enemy.style.left = (lanePositions[lane] + laneOffset) + 'px';
+          enemy.style.top = '-190px';
+          enemy.style.backgroundImage = `url('${enemyImages[Math.floor(Math.random() * enemyImages.length)]}')`;
+
+          game.appendChild(enemy);
+          enemies.push({ el: enemy, lane: lane, top: -190 });
+          chosenLanes.push(lane);
+        }
+      }
+    }
+
+    function updateEnemies() {
+      for (let i = enemies.length - 1; i >= 0; i--) {
+        let enemy = enemies[i];
+        enemy.top += 6;
+        enemy.el.style.top = enemy.top + 'px';
+
+        if (
+          enemy.top + 180 > window.innerHeight - 180 &&
+          enemy.top < window.innerHeight &&
+          enemy.lane === currentLane
+        ) {
+          endGame();
+        }
+
+        if (enemy.top > window.innerHeight) {
+          game.removeChild(enemy.el);
+          enemies.splice(i, 1);
+        }
+      }
+    }
+
+    function endGame() {
+      clearInterval(gameInterval);
+      clearInterval(enemySpawnInterval);
+      clearInterval(scoreInterval);
+      bgMusic.pause();
+      bgMusic.currentTime = 0;
+
+      // Save new high score if beaten
+      if (score > highScore) {
+        highScore = score;
+        localStorage.setItem('marioHighScore', highScore);
+        alert("🏆 New High Score! " + highScore);
+      } else {
+        alert("💥 Game Over! Your score: " + score);
+      }
+
+      window.location.reload();
+    }
+
+    function startGame() {
+      gameInterval = setInterval(updateEnemies, 20);
+      enemySpawnInterval = setInterval(spawnEnemy, 2000);
+      score = 0;
+      scoreEl.textContent = "0";
+      scoreInterval = setInterval(() => {
+        score++;
+        scoreEl.textContent = score;
+      }, 500);
+    }
+
+    startGame();
+  </script>
+
+</body>
+</html>
