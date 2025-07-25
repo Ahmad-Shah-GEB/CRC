@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Swimming Simulation with Shark</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: #87ceeb;
+    }
+
+    .pool {
+      width: 100vw;
+      height: 100vh;
+      background-image: url('background.png'); /* 👈 Make sure this path is correct */
+      background-size: cover;
+      background-position: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .swimmer {
+      width: 120px;
+      height: auto;
+      position: absolute;
+      left: 100px;
+      top: 200px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.3);
+      transition: top 0.05s ease-out, left 0.05s ease-out;
+      z-index: 2;
+    }
+
+    .water {
+      position: absolute;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background: repeating-linear-gradient(
+        to bottom,
+        rgba(255, 255, 255, 0.1) 0px,
+        rgba(255, 255, 255, 0.1) 2px,
+        transparent 2px,
+        transparent 6px
+      );
+      animation: wave 2s linear infinite;
+      z-index: 0;
+    }
+
+    @keyframes wave {
+      from { background-position-y: 0px; }
+      to { background-position-y: 8px; }
+    }
+
+    .shark {
+      position: absolute;
+      width: 100px;
+      height: 50px;
+      background: #878881;
+      border-radius: 150px 150px 50px 50px;
+      transform: rotate(0deg);
+      top: 300px;
+      left: 1000px;
+      transition: transform 0.1s linear;
+      z-index: 1;
+    }
+
+    .shark::before {
+      content: "";
+      position: absolute;
+      top: -30px;
+      left: 20px;
+      width: 0;
+      height: 0;
+      border-left: 40px solid transparent;
+      border-right: 40px solid transparent;
+      border-bottom: 50px solid #424439;
+      transform: rotate(-20deg);
+    }
+
+    .tail {
+      position: absolute;
+      right: -40px;
+      top: 10px;
+      width: 0;
+      height: 0;
+      border-top: 20px solid transparent;
+      border-bottom: 20px solid transparent;
+      border-left: 40px solid #424439;
+    }
+
+    .eye {
+      position: absolute;
+      top: 10px;
+      left: 20px;
+      width: 15px;
+      height: 15px;
+      background: white;
+      border-radius: 50%;
+      border: 2px solid black;
+    }
+
+    .eye::after {
+      content: "";
+      position: absolute;
+      top: 4px;
+      left: 4px;
+      width: 6px;
+      height: 6px;
+      background: black;
+      border-radius: 50%;
+    }
+
+    .mouth {
+      position: absolute;
+      bottom: 5px;
+      left: 40px;
+      width: 40px;
+      height: 20px;
+      background: black;
+      border-bottom-left-radius: 40px 20px;
+      border-bottom-right-radius: 40px 20px;
+      overflow: hidden;
+    }
+
+    .teeth {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 10px;
+      display: flex;
+      justify-content: space-evenly;
+    }
+
+    .teeth div {
+      width: 0;
+      height: 0;
+      border-left: 4px solid transparent;
+      border-right: 4px solid transparent;
+      border-bottom: 6px solid white;
+    }
+  </style>
+</head>
+<body>
+  <div class="pool">
+    <div class="water"></div>
+    <img src="swimmer.1.jpg" class="swimmer" id="swimmer" alt="Swimmer" />
+    <div class="shark" id="shark">
+      <div class="tail"></div>
+      <div class="eye"></div>
+      <div class="mouth">
+        <div class="teeth">
+          <div></div><div></div><div></div><div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <audio id="gameOverSound" src="gameover.mp3" preload="auto"></audio>
+
+  <div id="gameOverScreen" style="
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0,0,0,0.8);
+    color: white;
+    font-size: 48px;
+    font-family: sans-serif;
+    text-align: center;
+    padding-top: 30vh;
+    z-index: 999;
+  ">
+    TO BAD SO SAD<br>
+    <button onclick="location.reload()" style="
+      margin-top: 20px;
+      font-size: 24px;
+      padding: 10px 20px;
+      cursor: pointer;
+    ">Restart</button>
+  </div>
+
+  <script>
+    const swimmer = document.getElementById('swimmer');
+    const shark = document.getElementById('shark');
+    const pool = document.querySelector('.pool');
+
+    let swimmerX = 200;
+    let swimmerY = 300;
+    const moveAmount = 10;
+    let currentImage = "swimmer.1.jpg";
+
+    document.addEventListener('keydown', (e) => {
+      const poolWidth = pool.clientWidth;
+      const poolHeight = pool.clientHeight;
+      const swimmerWidth = swimmer.offsetWidth;
+      const swimmerHeight = swimmer.offsetHeight;
+
+      switch (e.key) {
+        case 'ArrowUp':
+          swimmerY = Math.max(0, swimmerY - moveAmount);
+          break;
+        case 'ArrowDown':
+          swimmerY = Math.min(poolHeight - swimmerHeight, swimmerY + moveAmount);
+          break;
+        case 'ArrowLeft':
+          swimmerX = Math.max(0, swimmerX - moveAmount);
+          break;
+        case 'ArrowRight':
+          swimmerX = Math.min(poolWidth - swimmerWidth, swimmerX + moveAmount);
+          // Toggle image
+          currentImage = currentImage === "swimmer.1.jpg" ? "swimmer.2.jpg" : "swimmer.1.jpg";
+          swimmer.src = currentImage;
+          break;
+      }
+
+      swimmer.style.top = swimmerY + 'px';
+      swimmer.style.left = swimmerX + 'px';
+    });
+
+    let sharkX = 2000;
+    let sharkY = 200;
+    let gameOver = false;
+
+    function checkCollision() {
+      const sharkRect = shark.getBoundingClientRect();
+      const swimmerRect = swimmer.getBoundingClientRect();
+      return !(
+        sharkRect.right < swimmerRect.left ||
+        sharkRect.left > swimmerRect.right ||
+        sharkRect.bottom < swimmerRect.top ||
+        sharkRect.top > swimmerRect.bottom
+      );
+    }
+
+    function moveSharkTowardSwimmer() {
+      if (gameOver) return;
+
+      const dx = swimmerX - sharkX;
+      const dy = swimmerY - sharkY;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+
+      if (distance > 1) {
+        const speed = 4;
+        sharkX += (dx / distance) * speed;
+        sharkY += (dy / distance) * speed;
+        shark.style.left = sharkX + 'px';
+        shark.style.top = sharkY + 'px';
+        shark.style.transform = dx < 0 ? 'scaleX(1)' : 'scaleX(-1)';
+      }
+
+      if (checkCollision()) {
+        gameOver = true;
+        document.getElementById('gameOverScreen').style.display = 'block';
+        document.getElementById('gameOverSound').play(); // 🔊 Play the sound
+      } else {
+        requestAnimationFrame(moveSharkTowardSwimmer);
+      }
+    }
+
+    moveSharkTowardSwimmer();
+  </script>
+</body>
+</html>
