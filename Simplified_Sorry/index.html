@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Simplified Sorry! – Roll Again on 6</title>
+  <style>
+    body { font-family: sans-serif; background: #f0f0f0; text-align: center; }
+    #board { width: 700px; height: 700px; margin: 30px auto; position: relative; border-radius: 50%; background: #fffbe6; border: 3px solid #ccc; }
+    .tile, .home-tile { width: 40px; height: 40px; border-radius: 50%; position: absolute; background: white; border: 1px solid #aaa; }
+    .home-tile { background: #eee; border-style: dashed; }
+    .start-tile { border: 3px solid; }
+    .start-red { background: #ffcccc; border-color: red; }
+    .start-blue { background: #cce0ff; border-color: blue; }
+    .start-green { background: #ccffcc; border-color: green; }
+    .start-yellow { background: #fff4cc; border-color: goldenrod; }
+    .pawn { width: 24px; height: 24px; border-radius: 50%; position: absolute; z-index: 10; transition: 0.3s; }
+    .red { background: red; } .blue { background: blue; } .green { background: green; } .yellow { background: goldenrod; }
+    #rollBtn { padding: 10px 20px; font-size: 16px; margin-top: 20px; cursor: pointer; }
+    #status { margin-top: 10px; font-weight: bold; min-height: 24px; }
+    .explosion-particle { position: absolute; border-radius: 50%; pointer-events: none; opacity: 1; animation: explode 600ms forwards; z-index: 1000; }
+    @keyframes explode {
+      to { transform: translate(var(--dx), var(--dy)) scale(0); opacity: 0; }
+    }
+  </style>
+</head>
+<body>
+
+<h1>Simplified Sorry! – Roll Again on 6 🎲</h1>
+<div id="board"></div>
+<button id="rollBtn">Roll Dice</button>
+<div id="status"></div>
+
+<script>
+  const board = document.getElementById('board'), rollBtn = document.getElementById('rollBtn'), status = document.getElementById('status');
+  const tileCount = 60, radius = 300, centerX = 350, centerY = 350;
+  const playerColors = ['red','blue','green','yellow'], startOffsets=[0,15,30,45], homeSteps=5;
+  const tiles=[], homePaths=[[],[],[],[]];
+  const players = playerColors.map(c => ({
+    color: c,
+    progress: 0,
+    onHomePath: false,
+    homeProgress: 0,
+    hasBumped: false
+  }));
+  const pawns = [];
+  let currentPlayer = 0, gameOver = false;
+
+  for(let i=0;i<tileCount;i++){
+    const angle=2*Math.PI*i/tileCount;
+    const x=centerX+radius*Math.cos(angle)-20, y=centerY+radius*Math.sin(angle)-20;
+    const tile=document.createElement('div');
+    tile.classList.add('tile');
+    const startI=startOffsets.indexOf(i);
+    if(startI >= 0){
+      tile.classList.add('start-tile','start-'+playerColors[startI]);
+    }
+    tile.style.left=`${x}px`; tile.style.top=`${y}px`;
+    board.appendChild(tile);
+    tiles.push(tile);
+  }
+
+  playerColors.forEach((c,i)=>{
+    const angle = 2*Math.PI*startOffsets[i]/tileCount;
+    for(let s=0;s<homeSteps;s++){
+      const dist=radius-(s+1)*50;
+      const x=centerX+dist*Math.cos(angle)-20, y=centerY+dist*Math.sin(angle)-20;
+      const tile=document.createElement('div');
+      tile.classList.add('tile','home-tile');
+      tile.style.left=`${x}px`; tile.style.top=`${y}px`;
+      board.appendChild(tile);
+      homePaths[i].push(tile);
+    }
+  });
+
+  playerColors.forEach((c,i)=>{
+    const pawn=document.createElement('div');
+    pawn.classList.add('pawn',c);
+    board.appendChild(pawn);
+    pawns.push(pawn);
+    setPosition(i);
+  });
+
+  function setPosition(i){
+    const p=players[i];
+    let tile = p.onHomePath ? homePaths[i][p.homeProgress-1] : tiles[(startOffsets[i]+p.progress)%tileCount];
+    pawns[i].style.left=`${tile.offsetLeft+8}px`;
+    pawns[i].style.top=`${tile.offsetTop+8}px`;
+    return tile;
+  }
+
+  function explode(ele,c){
+    const r=ele.getBoundingClientRect(), br=board.getBoundingClientRect();
+    const cx=r.left+r.width/2-br.left, cy=r.top+r.height/2-br.top;
+    for(let i=0;i<20;i++){
+      const dot=document.createElement('div');
+      dot.classList.add('explosion-particle');
+      dot.style.background=c;
+      const a=Math.random()*2*Math.PI, d=30+Math.random()*30;
+      dot.style.left=`${cx}px`; dot.style.top=`${cy}px`;
+      dot.style.setProperty('--dx', `${Math.cos(a)*d}px`);
+      dot.style.setProperty('--dy', `${Math.sin(a)*d}px`);
+      board.appendChild(dot);
+      dot.addEventListener('animationend',()=>dot.remove());
+    }
+  }
+
+  function playerAt(pos){
+    return players.findIndex((p,i)=>!p.onHomePath && (startOffsets[i]+p.progress)%tileCount===pos);
+  }
+
+  function movePlayer(index, roll){
+    const p = players[index];
+    if(p.onHomePath){
+      const remain = homeSteps - p.homeProgress;
+      if(roll > remain){
+        status.textContent = `${p.color.toUpperCase()} rolled too high (${roll}), needs ≤${remain}. Skipped.`;
+        return false;
+      }
+      p.homeProgress += roll;
+      setPosition(index);
+      if(p.homeProgress === homeSteps){
+        explode(homePaths[index][homeSteps-1],p.color);
+        status.textContent=`${p.color.toUpperCase()} WINS! 🎉`;
+        rollBtn.disabled = true;
+        gameOver = true;
+      } else {
+        status.textContent = `${p.color.toUpperCase()} advanced in home path (${p.homeProgress}/${homeSteps}).`;
+      }
+      return true;
+    }
+
+    let newProg = p.progress + roll;
+    const toHome = tileCount - p.progress;
+
+    if(newProg >= tileCount){
+      const extra = newProg - tileCount;
+      if(!p.hasBumped){
+        newProg = (p.progress + roll) % tileCount;
+        p.progress = newProg;
+        setPosition(index);
+        status.textContent = `${p.color.toUpperCase()} must bump before entering home path and keeps moving around the board.`;
+        return true;
+      }
+
+      if(extra > homeSteps){
+        status.textContent = `${p.color.toUpperCase()} rolled too high to enter home path. Skipped.`;
+        return false;
+      }
+
+      p.onHomePath = true;
+      p.homeProgress = extra;
+      p.progress = tileCount;
+      setPosition(index);
+      status.textContent = `${p.color.toUpperCase()} entered home path (${p.homeProgress}/${homeSteps}).`;
+      return true;
+    }
+
+    const pos = (startOffsets[index] + newProg) % tileCount;
+    const occ = playerAt(pos);
+    const isStart = startOffsets.includes(pos);
+
+    if(occ > -1 && !isStart){
+      players[occ].progress = 0;
+      players[occ].onHomePath = false;
+      players[occ].homeProgress = 0;
+      setPosition(occ);
+      p.hasBumped = true;
+      p.progress = newProg;
+      setPosition(index);
+      explode(tiles[pos], p.color);
+      status.textContent = `${p.color.toUpperCase()} bumped ${players[occ].color.toUpperCase()}!`;
+    } else {
+      p.progress = newProg;
+      setPosition(index);
+      status.textContent = `${p.color.toUpperCase()} moved ${roll} spaces.`;
+    }
+
+    return true;
+  }
+
+  rollBtn.addEventListener('click', ()=>{
+    if (gameOver) return;
+
+    function takeTurn() {
+      const roll = Math.floor(Math.random() * 6) + 1;
+      status.textContent = `${players[currentPlayer].color.toUpperCase()} rolls a ${roll}.`;
+
+      const moved = movePlayer(currentPlayer, roll);
+
+      if (!moved || roll !== 6) {
+        currentPlayer = (currentPlayer + 1) % players.length;
+      } else {
+        status.textContent += ` 🎉 Rolled a 6! Roll again!`;
+        return; // keep currentPlayer the same
+      }
+    }
+
+    takeTurn();
+  });
+</script>
+</body>
+</html>
