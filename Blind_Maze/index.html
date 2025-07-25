@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Memory Maze</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: sans-serif;
+      background: #111;
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+    }
+    #game-container {
+      display: flex;
+      gap: 20px;
+      max-width: 900px;
+    }
+    #game {
+      position: relative;
+      flex-shrink: 0;
+    }
+    #instructions {
+      background: #222;
+      padding: 20px;
+      border-radius: 8px;
+      max-width: 250px;
+      font-size: 0.9rem;
+      line-height: 1.5;
+    }
+    #instructions h3 {
+      margin-top: 0;
+      color: limegreen;
+    }
+    #instructions ul {
+      padding-left: 20px;
+    }
+    #maze { display: grid; gap: 2px; }
+    .cell {
+      width: 30px; height: 30px;
+      background: #000;
+      box-sizing: border-box;
+    }
+    .path { background: #444; }
+    .player { background: yellow !important; }
+    .trail { background: orange !important; opacity: 0.6; }
+    .hidden-tile { background: #000 !important; }
+    .end { background: red !important; }
+
+    #ui {
+      margin-top: 10px;
+      display: flex;
+      justify-content: space-between;
+      width: 100%;
+    }
+    #level { font-weight: bold; }
+    #victory {
+      position: absolute; top: 40%; left: 50%;
+      transform: translate(-50%, -50%);
+      background: #222;
+      padding: 30px 40px; border-radius: 8px;
+      text-align: center; z-index: 2;
+      color: limegreen; font-size: 3rem;
+      font-weight: bold;
+      box-shadow: 0 0 15px limegreen;
+    }
+    #victory p {
+      font-size: 1.2rem; margin: 15px 0;
+      color: white; font-weight: normal;
+    }
+    #victory button {
+      margin: 0 15px; padding: 10px 25px;
+      font-size: 1rem; border: none;
+      border-radius: 5px; cursor: pointer;
+      background: limegreen; color: #111;
+      font-weight: bold;
+      transition: background 0.3s;
+    }
+    #victory button:hover { background: #76ff03; }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <div id="game-container">
+    <div id="game">
+      <div id="maze"></div>
+      <div id="ui">
+        <div id="level">Level: 1</div>
+        <div id="timer">Time: 0s</div>
+      </div>
+      <div id="victory" class="hidden">
+        🎉 You Win!<p id="final-time"></p>
+        <button onclick="nextLevel()">Next Level</button>
+        <button onclick="restartGame()">Restart</button>
+      </div>
+    </div>
+
+    <div id="instructions">
+      <h3>How to Play Memory Maze</h3>
+      <ul>
+        <li><strong>Yellow tile</strong> is your current position</li>
+        <li><strong>Red tile</strong> is where you need to go</li>
+        <li><strong>Grey tiles</strong> near you are walkable paths</li>
+        <li><strong>Black tiles</strong> are hidden - you can't see them until you're close</li>
+      </ul>
+      <p>The maze is revealed briefly at the start. After that, you can only see tiles adjacent to your position.</p>
+      <p>Use arrow keys to move. Find your way to the red tile by trying different paths and remembering the layout.</p>
+      <p>Orange tiles show where you've been.</p>
+    </div>
+  </div>
+
+  <script>
+    const mazeElement = document.getElementById("maze");
+    const timerElement = document.getElementById("timer");
+    const levelElement = document.getElementById("level");
+    const victoryScreen = document.getElementById("victory");
+    const finalTimeText = document.getElementById("final-time");
+
+    const levels = [
+      {
+        maze: [
+          "###############",
+          "#.............#",
+          "#.#####.#####.#",
+          "#.#...#.....#.#",
+          "#.#.###.###.#.#",
+          "#.#.#.#.#.#.#.#",
+          "#.#.#.#.#.#.#.#",
+          "#.#...#.#...#.#",
+          "#.#####.#####.#",
+          "#.............#",
+          "#####.###.#####",
+          "#.............#",
+          "#.###########.#",
+          "#.............#",
+          "###############"
+        ],
+        start: [1,1],
+        end:   [13,13],
+        preview: 2000
+      },
+      {
+        maze: [
+          "###############",
+          "#.............#",
+          "#.#####.#####.#",
+          "#.#...#.#...#.#",
+          "#.#.#.#.#.#.#.#",
+          "#.#.#...#.#.#.#",
+          "#.#.#####.#.#.#",
+          "#.#.......#.#.#",
+          "#.#########.#.#",
+          "#...........#.#",
+          "#####.#####.#.#",
+          "#.....#...#.#.#",
+          "#.#####.###.#.#",
+          "#.............#",
+          "###############"
+        ],
+        start: [1,1],
+        end:   [13,13],
+        preview: 2000
+      },
+      {
+        maze: [
+          "#################",
+          "#...............#",
+          "#.#####.#####.###",
+          "#.#...#.#...#...#",
+          "#.#.#.#.#.#.###.#",
+          "#...#...#.#...#.#",
+          "#####.###.###.#.#",
+          "#.....#.......#.#",
+          "#.###########.#.#",
+          "#.#.........#.#.#",
+          "#.#.#######.#.#.#",
+          "#.#.#.....#.#.#.#",
+          "#.#.#.###.#.#.#.#",
+          "#.#...#...#...#.#",
+          "#.###########.#.#",
+          "#...............#",
+          "#################"
+        ],
+        start: [1,1],
+        end:   [15,15],
+        preview: 2000
+      },
+      {
+        maze: [
+          "#################",
+          "#...............#",
+          "#.#####.#####.###",
+          "#.#...#.#...#...#",
+          "#.#.#.#.#.#.###.#",
+          "#...#...#.#...#.#",
+          "#####.###.###.#.#",
+          "#.....#.......#.#",
+          "#.#####.#####.#.#",
+          "#.#.........#.#.#",
+          "#.#.#######.#.#.#",
+          "#.#.#.....#.#.#.#",
+          "#.#.#.###.#.#.#.#",
+          "#.#...#...#...#.#",
+          "#.###########.#.#",
+          "#...............#",
+          "#################"
+        ],
+        start: [1,1],
+        end:   [15,15],
+        preview: 2000
+      },
+      {
+        maze: [
+          "#################",
+          "#.....#.........#",
+          "#.###.#.#####.###",
+          "#.#.#.#.#...#...#",
+          "#.#.#.#.#.#.#.#.#",
+          "#.#...#.#.#.#.#.#",
+          "#.#####.#.#.#.#.#",
+          "#.......#.#.#.#.#",
+          "#######.#.#.#.#.#",
+          "#.......#...#.#.#",
+          "#.###########.#.#",
+          "#.............#.#",
+          "#.#############.#",
+          "#...............#",
+          "#################"
+        ],
+        start: [1,1],
+        end:   [15,13],
+        preview: 2000
+      }
+    ];
+
+    let currentLevel = 0;
+    let player = { x: 1, y: 1 };
+    let timer = 0, interval, trail = [];
+
+    function isWalkable(x, y, maze) {
+      return maze[y] && maze[y][x] === ".";
+    }
+
+    function drawMaze() {
+      const maze = levels[currentLevel].maze;
+      mazeElement.innerHTML = '';
+      mazeElement.style.gridTemplateColumns = `repeat(${maze[0].length},30px)`;
+      maze.forEach((row,y)=>{
+        [...row].forEach((c,x)=>{
+          const cell = document.createElement('div');
+          cell.classList.add('cell');
+          if (c==='.'){
+            cell.classList.add('path');
+            if (x === levels[currentLevel].end[0] && y === levels[currentLevel].end[1]) {
+              cell.classList.add('end');
+            }
+          }
+          if (player.x===x && player.y===y) cell.classList.add('player');
+          else if (trail.some(t=>t.x===x&&t.y===y)) cell.classList.add('trail');
+          if (Math.abs(player.x-x)>1 || Math.abs(player.y-y)>1) {
+            cell.classList.add('hidden-tile');
+          }
+          mazeElement.appendChild(cell);
+        });
+      });
+    }
+
+    function startGame() {
+      const lvl = levels[currentLevel];
+      levelElement.textContent = `Level: ${currentLevel + 1}`;
+      player = { x:lvl.start[0], y:lvl.start[1] };
+      timer = 0; trail = [];
+
+      drawMaze();
+      setTimeout(()=>{
+        drawMaze();
+        clearInterval(interval);
+        interval = setInterval(()=>timerElement.textContent=`Time: ${++timer}s`,1000);
+        document.addEventListener('keydown', handleMove);
+      }, levels[currentLevel].preview);
+    }
+
+    function handleMove(e) {
+      const {x,y} = player;
+      let [nx,ny] = [x,y];
+      if (e.key==='ArrowUp') ny--;
+      else if (e.key==='ArrowDown') ny++;
+      else if (e.key==='ArrowLeft') nx--;
+      else if (e.key==='ArrowRight') nx++;
+      else return;
+
+      e.preventDefault();
+
+      if (isWalkable(nx,ny, levels[currentLevel].maze)) {
+        trail.push({x,y});
+        player={x:nx,y:ny};
+        drawMaze();
+        checkVictory();
+      }
+    }
+
+    function checkVictory() {
+      const lvl = levels[currentLevel];
+      if (player.x===lvl.end[0] && player.y===lvl.end[1]) {
+        clearInterval(interval);
+        document.removeEventListener('keydown', handleMove);
+        finalTimeText.textContent=`Level ${currentLevel+1} completed in ${timer}s!`;
+        victoryScreen.classList.remove('hidden');
+      }
+    }
+
+    function nextLevel() {
+      currentLevel = (currentLevel+1) % levels.length;
+      victoryScreen.classList.add('hidden');
+      startGame();
+    }
+
+    function restartGame() {
+      victoryScreen.classList.add('hidden');
+      startGame();
+    }
+
+    startGame();
+  </script>
+</body>
+</html>
