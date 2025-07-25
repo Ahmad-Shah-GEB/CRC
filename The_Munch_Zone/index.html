@@ -46,17 +46,8 @@
       color: #000;
     }
     .customer-row {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: 20px;
-      margin-bottom: 20px;
-
-      /* NEW LINES BELOW */
-      max-height: 280px; /* adjust this height as needed */
-      overflow-y: auto;
+      display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; margin-bottom: 20px;
     }
-
     .customer {
       display: flex; flex-direction: column; align-items: center; margin: 10px;
       position: relative;
@@ -79,7 +70,12 @@
     }
     .angry .head { color: red; }
     .angry .body { background: #ff4d4d; }
-    #order { font-size: 24px; margin-bottom: 20px; font-weight: bold; }
+    #order {
+      font-size: 28px;
+      margin-bottom: 20px;
+      font-weight: bold;
+      user-select: none;
+    }
     #buttons-container {
       display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-bottom: 20px;
     }
@@ -147,6 +143,14 @@
       <p><em>Meet Jake, once a top chef at a fancy restaurant.</em></p>
       <p>After getting unfairly kicked out from his old job, he decided to open his own quirky burger and hotdog joint — The Munch Zone.</p>
       <p>Your job? Help Jake serve customers fast and accurate to keep the business alive!</p>
+      <h3>How to Play:</h3>
+      <ul style="text-align:left; max-width:300px; margin: 10px auto;">
+        <li>Click ingredient buttons to build the order.</li>
+        <li>Click 🍽 Serve to give the burger/hotdog/drink to the first customer.</li>
+        <li>Serve correctly and quickly to earn tips and points.</li>
+        <li>Don't let customers wait too long or they get angry and leave!</li>
+        <li>After serving 7 customers, the day ends and a new day starts with more customers.</li>
+      </ul>
       <button id="start-from-story-btn">Start Game</button>
     </div>
   </div>
@@ -165,7 +169,7 @@
   <div id="overlay" style="display:none;">
     <div id="start-menu">
       <h1>The Munch Zone</h1>
-      <button id="show-story-btn">Backstory</button>
+      <button id="show-story-btn">Backstory & Instructions</button>
       <button id="show-leaderboard-btn">Leaderboard</button>
     </div>
   </div>
@@ -197,412 +201,415 @@
   const burgerMenu = { "Bun Top":"🥯","Lettuce":"🥬","Patty":"🍖","Cheese":"🧀","Bun Bottom":"🥯" };
   const hotdogMenu = { "Hotdog Bun Top":"🌭","Ketchup":"🍅","Mustard":"🌟","Relish":"🥒","Hotdog Bun Bottom":"🌭" };
   const drinksMenu = { "Water":"💧","Soda":"🥤","Coffee":"☕" };
-  const customerFaces = ["😀","😃","😄","😆","😊","😎"];
-  const angryFace = "😡";
+  const customerFaces = ["😀","😃","😄","😆","😊","😎","😉","😋"];
+  const angryFaces = ["😡","😠","👿","🤬"];
 
-  // Customizable skin and hair options
-  const skinColors = ['#f1c27d','#e0ac69','#c68642','#8d5524','#fce1c1'];
-  const hairColors = ['#000000','#8b4513','#ffeb3b','#c71585','#4b0082'];
+  // Game state
+  let customers = [];
+  let currentOrder = null;
+  let burger = [];
+  let score = 0;
+  let serving = false;
+  let dayCount = 1;
+  let customersServed = 0;
+  let maxCustomersPerDay = 7;
+  let reviewTimeout = null;
+  let tipAmount = 5;
+  let timersInterval = null;
 
-  let playerBurger = [], score = 0, wrong = 0, customers = [], customersServed = 0;
-  let maxCustomers = 7, level = "burger", spawnInterval = null;
-  let selectedSkin = skinColors[0], selectedHair = hairColors[0];
-  let unlockedSkins = new Set([skinColors[0]]); // unlock default skin at start
-  let unlockedHairs = new Set([hairColors[0]]); // unlock default hair at start
-  let tipsCollected = 0;
+  // Customization state
+  let skinColors = ["#F9CBA7","#D9A066","#B66E41","#7C4A25","#5C2A0C"];
+  let hairColors = ["#000000","#663300","#FFDD55","#DDAA55","#444444"];
+  let selectedSkinIndex = 0;
+  let selectedHairIndex = 0;
 
-  const bgm = document.getElementById("bgm");
-  const correctSfx = document.getElementById("correct-sfx");
-  const wrongSfx = document.getElementById("wrong-sfx");
-  const tipSfx = document.getElementById("tip-sfx");
-  const muteBtn = document.getElementById("mute-btn");
+  // HTML elements
+  const overlay = document.getElementById('overlay');
+  const storyOverlay = document.getElementById('story-overlay');
+  const leaderboardOverlay = document.getElementById('leaderboard-overlay');
+  const customersContainer = document.getElementById('customers');
+  const orderEl = document.getElementById('order');
+  const buttonsContainer = document.getElementById('buttons-container');
+  const burgerEl = document.getElementById('burger');
+  const resultEl = document.getElementById('result');
+  const scoreEl = document.getElementById('score');
+  const reviewEl = document.getElementById('review');
+  const gameDiv = document.getElementById('game');
+  const muteBtn = document.getElementById('mute-btn');
+  const skinSelector = document.getElementById('skin-selector');
+  const hairSelector = document.getElementById('hair-selector');
+  const leaderboardList = document.getElementById('leaderboard-list');
+  const startFromStoryBtn = document.getElementById('start-from-story-btn');
+  const showStoryBtn = document.getElementById('show-story-btn');
+  const showLeaderboardBtn = document.getElementById('show-leaderboard-btn');
+  const closeLeaderboardBtn = document.getElementById('close-leaderboard-btn');
+  const bgm = document.getElementById('bgm');
+  const correctSfx = document.getElementById('correct-sfx');
+  const wrongSfx = document.getElementById('wrong-sfx');
+  const tipSfx = document.getElementById('tip-sfx');
 
-  const customersDiv = document.getElementById("customers");
-  const burgerDiv = document.getElementById("burger");
-  const resultDiv = document.getElementById("result");
-  const scoreDiv = document.getElementById("score");
-  const orderDiv = document.getElementById("order");
-  const reviewDiv = document.getElementById("review");
-  const buttonsContainer = document.getElementById("buttons-container");
-  const overlay = document.getElementById("overlay");
-  const gameDiv = document.getElementById("game");
+  // Helper: pick random element
+  function randomFrom(arr) {
+    return arr[Math.floor(Math.random() * arr.length)];
+  }
 
-  // Story and leaderboard elements
-  const storyOverlay = document.getElementById("story-overlay");
-  const leaderboardOverlay = document.getElementById("leaderboard-overlay");
-  const leaderboardList = document.getElementById("leaderboard-list");
-  const skinSelectorDiv = document.getElementById("skin-selector");
-  const hairSelectorDiv = document.getElementById("hair-selector");
-
-  class Customer {
-    constructor(id) {
-      this.id = id;
-      this.order = this.randomOrder();
-      this.timer = 20;
-      this.remaining = this.timer;
-      this.interval = null;
-      this.tipJar = 0;
-      this.createElement();
-      this.startTimer();
+  // Create a new customer order
+  function createCustomer() {
+    // Randomly choose burger, hotdog, or drink order
+    let type = ['burger', 'hotdog', 'drink'][Math.floor(Math.random()*3)];
+    let order = [];
+    if(type === 'burger') {
+      order = ["Bun Top","Lettuce","Patty","Cheese","Bun Bottom"];
+    } else if(type === 'hotdog') {
+      order = ["Hotdog Bun Top","Ketchup","Mustard","Relish","Hotdog Bun Bottom"];
+    } else {
+      // Drink, choose one drink only
+      const drinks = Object.keys(drinksMenu);
+      order = [randomFrom(drinks)];
     }
-    createElement() {
-      this.element = document.createElement("div");
-      this.element.className = "customer";
-      this.headDiv = document.createElement("div");
-      this.headDiv.className = "head";
-      this.bodyDiv = document.createElement("div");
-      this.bodyDiv.className = "body";
+    return {
+      face: randomFrom(customerFaces),
+      angryFace: randomFrom(angryFaces),
+      orderType: type,
+      order,
+      waitTime: 20 + Math.floor(Math.random()*10), // seconds
+      angry: false,
+      tip: tipAmount,
+      skinColor: skinColors[selectedSkinIndex],
+      hairColor: hairColors[selectedHairIndex],
+    };
+  }
 
-      // Apply chosen skin and hair for this customer
-      this.applySkinHair();
-
-      this.timerDiv = document.createElement("div");
-      this.timerDiv.className = "timer";
-      this.timerDiv.textContent = `⏳ ${this.remaining}`;
-
-      this.tipJarDiv = document.createElement("div");
-      this.tipJarDiv.className = "tip-jar";
-      this.tipJarDiv.style.display = "none";
-
-      this.element.appendChild(this.timerDiv);
-      this.element.appendChild(this.headDiv);
-      this.element.appendChild(this.bodyDiv);
-      this.element.appendChild(this.tipJarDiv);
-      customersDiv.appendChild(this.element);
-
-      // Random face on head
-      this.setFace(this.randomHappyFace());
-    }
-    applySkinHair() {
-      // For demo: Randomize from unlocked skins and hairs
-      const skinsArr = Array.from(unlockedSkins);
-      const hairsArr = Array.from(unlockedHairs);
-      this.skinColor = skinsArr[Math.floor(Math.random()*skinsArr.length)];
-      this.hairColor = hairsArr[Math.floor(Math.random()*hairsArr.length)];
-
-      this.bodyDiv.style.background = this.skinColor;
-      this.bodyDiv.style.borderColor = this.hairColor;
-      // Hair represented by top border color
-      this.bodyDiv.style.borderTop = `20px solid ${this.hairColor}`;
-    }
-    setFace(face) {
-      this.headDiv.textContent = face;
-    }
-    startTimer() {
-      this.interval = setInterval(() => {
-        this.remaining--;
-        this.timerDiv.textContent = `⏳ ${this.remaining}`;
-        if(this.remaining <= 0) this.leaveAngrily();
-      }, 1000);
-    }
-    randomOrder() {
-      if(level === "burger") {
-        let o = ["Bun Top"];
-        const mid = ["Lettuce","Patty","Cheese"];
-        for(let i=0;i<Math.floor(Math.random()*3)+1;i++) o.push(mid[Math.floor(Math.random()*mid.length)]);
-        o.push("Bun Bottom");
-        return o;
+  // Draw customers on screen
+  function drawCustomers() {
+    customersContainer.innerHTML = '';
+    customers.forEach((cust, idx) => {
+      const div = document.createElement('div');
+      div.classList.add('customer');
+      if(cust.angry) div.classList.add('angry');
+      div.style.color = cust.skinColor;
+      // head with hair color as text-shadow to simulate hair
+      div.innerHTML = `
+        <div class="timer">${cust.waitTime}s</div>
+        <div class="head" style="text-shadow: 1px 1px 1px ${cust.hairColor}, -1px -1px 1px ${cust.hairColor};">
+          ${cust.angry ? cust.angryFace : cust.face}
+        </div>
+        <div class="body"></div>
+      `;
+      if(cust.tip > 0) {
+        const tipJar = document.createElement('div');
+        tipJar.classList.add('tip-jar');
+        tipJar.textContent = `💰${cust.tip}`;
+        div.appendChild(tipJar);
       }
-      if(level === "hotdog") {
-        let o = ["Hotdog Bun Top"];
-        const mid = ["Ketchup","Mustard","Relish"];
-        for(let i=0;i<Math.floor(Math.random()*3)+1;i++) o.push(mid[Math.floor(Math.random()*mid.length)]);
-        o.push("Hotdog Bun Bottom");
-        return o;
+      customersContainer.appendChild(div);
+    });
+  }
+
+  // Update timer countdown for customers
+  function updateTimers() {
+    customers.forEach((cust, idx) => {
+      if(cust.waitTime > 0) {
+        cust.waitTime--;
+        if(cust.waitTime <= 7) {
+          cust.angry = true;
+        }
+        if(cust.waitTime <= 0) {
+          // Customer leaves angry, lose points
+          score -= 10;
+          review("A customer left angrily! -10 points", false);
+          customers.splice(idx,1);
+          if(customers.length === 0) nextDay();
+        }
       }
-      let d = Object.keys(drinksMenu);
-      return [d[Math.floor(Math.random()*d.length)]];
-    }
-    randomHappyFace() {
-      return customerFaces[Math.floor(Math.random()*customerFaces.length)];
-    }
-    leaveAngrily() {
-      clearInterval(this.interval);
-      this.setFace(angryFace);
-      this.element.classList.add("angry");
-      customersServed++; wrong++;
-      setTimeout(() => {
-        this.element.remove();
-        customers = customers.filter(c => c !== this);
-        updateOrderDisplay();
-        checkDayEnd();
-      }, 1000);
-    }
-    serve(b) {
-      clearInterval(this.interval);
-      const correct = JSON.stringify(b) === JSON.stringify(this.order);
-      if(correct) {
-        score++;
-        resultDiv.textContent = "✅ Perfect!";
-        this.setFace(this.randomHappyFace());
-        correctSfx.play();
-        // Add tip if service is good (random 1-5)
-        this.tipJar = Math.floor(Math.random()*5)+1;
-        this.tipJarDiv.textContent = `💰${this.tipJar}`;
-        this.tipJarDiv.style.display = "block";
-        tipsCollected += this.tipJar;
-        tipSfx.play();
-        updateScoreDisplay();
-      } else {
-        wrong++;
-        resultDiv.textContent = "❌ Wrong!";
-        this.setFace(angryFace);
-        this.element.classList.add("angry");
-        wrongSfx.play();
-        updateScoreDisplay();
-      }
-      customersServed++;
-      setTimeout(() => {
-        this.element.remove();
-        customers = customers.filter(c => c !== this);
-        updateOrderDisplay();
-        checkDayEnd();
-      }, 1000);
-    }
+    });
+    drawCustomers();
+    updateOrder();
+    updateScore();
   }
 
-  // Show/hide overlays
-  function showOverlay(id) {
-    document.getElementById(id).style.display = "flex";
-  }
-  function hideOverlay(id) {
-    document.getElementById(id).style.display = "none";
-  }
-
-  // Game start after story
-  document.getElementById("start-from-story-btn").onclick = () => {
-    hideOverlay("story-overlay");
-    startGame();
-  };
-
-  // Show story on button
-  document.getElementById("show-story-btn").onclick = () => {
-    hideOverlay("overlay");
-    showOverlay("story-overlay");
-  };
-
-  // Show leaderboard
-  document.getElementById("show-leaderboard-btn").onclick = () => {
-    hideOverlay("overlay");
-    showLeaderboard();
-  };
-
-  // Close leaderboard
-  document.getElementById("close-leaderboard-btn").onclick = () => {
-    hideOverlay("leaderboard-overlay");
-    showOverlay("overlay");
-  };
-
-  // Mute toggle
-  muteBtn.addEventListener("click", () => {
-    const muted = bgm.muted;
-    bgm.muted = !muted;
-    correctSfx.muted = !muted;
-    wrongSfx.muted = !muted;
-    tipSfx.muted = !muted;
-    muteBtn.textContent = bgm.muted ? "🔈 Unmute" : "🔇 Mute";
-  });
-
-  // Start game function
-  function startGame(){
-    overlay.style.display = "none";
-    gameDiv.style.display = "block";
-    muteBtn.style.display = "block";
-    bgm.play();
-    resetGame();
-    updateButtonsForLevel();
-    startSpawning();
-    buildSkinSelector();
-    buildHairSelector();
+  // Convert order array to emoji string (for display)
+  function describeOrder(order) {
+    // Map ingredient names to emojis
+    const map = {...burgerMenu, ...hotdogMenu, ...drinksMenu};
+    return order.map(i => map[i] || i).join(' ');
   }
 
-  function resetGame() {
-    playerBurger = [];
-    score = 0;
-    wrong = 0;
-    customers = [];
-    customersServed = 0;
-    tipsCollected = 0;
-    maxCustomers = 7;
-    level = "burger";
-    scoreDiv.textContent = "Score: 0";
-    reviewDiv.innerHTML = "";
-    resultDiv.innerHTML = "";
-    burgerDiv.innerHTML = "";
-    buttonsContainer.style.display = "flex";
-    customersDiv.innerHTML = "";
-  }
-
-  function addIngredient(ing){
-    playerBurger.push(ing);
-    const span = document.createElement("span");
-    span.className = "ingredient";
-    const menu = {...burgerMenu, ...hotdogMenu, ...drinksMenu};
-    span.textContent = menu[ing] || ing;
-    burgerDiv.appendChild(span);
-  }
-
-  function serveBurger(){
-    if(customers[0]) {
-      customers[0].serve(playerBurger);
-      playerBurger = [];
-      burgerDiv.innerHTML = "";
-    }
-  }
-
-  function updateScoreDisplay(){
-    scoreDiv.textContent = `Score: ${score} | Tips: $${tipsCollected}`;
-  }
-
-  // Update order display for first customer
-  function updateOrderDisplay(){
-    if(customers.length === 0){
-      orderDiv.textContent = "Waiting for customers...";
-      buttonsContainer.style.display = "none";
-      showDayReview();
+  // Show current order to player
+  function updateOrder() {
+    if(customers.length === 0) {
+      orderEl.textContent = "No customers waiting!";
+      currentOrder = null;
       return;
     }
-    buttonsContainer.style.display = "flex";
-    let orderStr = "First customer wants: ";
-    let menu = {...burgerMenu, ...hotdogMenu, ...drinksMenu};
-    orderStr += customers[0].order.map(o => menu[o] || o).join(" ");
-    orderDiv.textContent = orderStr;
+    currentOrder = customers[0].order;
+    orderEl.textContent = `First customer wants: ${describeOrder(currentOrder)}`;
   }
 
-  // Spawn customers every 5 sec max
-  function startSpawning(){
-    spawnInterval = setInterval(() => {
-      if(customers.length < maxCustomers){
-        const cust = new Customer(Date.now());
-        customers.push(cust);
-        updateOrderDisplay();
-      }
-    }, 5000);
-  }
-
-  function checkDayEnd(){
-    if(customersServed >= maxCustomers) {
-      clearInterval(spawnInterval);
-      buttonsContainer.style.display = "none";
-      orderDiv.textContent = "Day ended!";
-
-      setTimeout(() => {
-        showDayReview();
-      }, 1000);
-    }
-  }
-
-  function showDayReview(){
-    let reviewText = `<h3>Day Review:</h3>`;
-    reviewText += `<p>Customers Served: ${customersServed}</p>`;
-    reviewText += `<p>Correct Orders: ${score}</p>`;
-    reviewText += `<p>Wrong Orders: ${wrong}</p>`;
-    reviewText += `<p>Tips Earned: $${tipsCollected}</p>`;
-
-    reviewDiv.innerHTML = reviewText;
-
-    saveScoreToLeaderboard(score + tipsCollected);
-
-    // Reset after 5 seconds to start again
-    setTimeout(() => {
-      reviewDiv.innerHTML = "";
-      resetGame();
-    }, 7000);
-  }
-
-  // Update buttons for current level (burger/hotdog/drinks)
-  function updateButtonsForLevel(){
-    buttonsContainer.innerHTML = "";
-    let menu = {};
-    if(level === "burger") menu = burgerMenu;
-    else if(level === "hotdog") menu = hotdogMenu;
-    else menu = drinksMenu;
-
-    for(let ing in menu){
-      const btn = document.createElement("button");
-      btn.textContent = menu[ing];
-      btn.title = ing;
-      btn.onclick = () => addIngredient(ing);
+  // Draw buttons for ingredients
+  function drawButtons() {
+    buttonsContainer.innerHTML = '';
+    // Combine all menus keys for buttons
+    const allIngredients = [...new Set([
+      ...Object.keys(burgerMenu),
+      ...Object.keys(hotdogMenu),
+      ...Object.keys(drinksMenu),
+    ])];
+    allIngredients.forEach(ingredient => {
+      const btn = document.createElement('button');
+      btn.textContent = (burgerMenu[ingredient] || hotdogMenu[ingredient] || drinksMenu[ingredient]) + " " + ingredient;
+      btn.onclick = () => {
+        burger.push(ingredient);
+        drawBurger();
+      };
       buttonsContainer.appendChild(btn);
+    });
+  }
+
+  // Show current burger stack with emojis
+  function drawBurger() {
+    burgerEl.innerHTML = '';
+    burger.forEach(ing => {
+      const span = document.createElement('span');
+      span.className = 'ingredient';
+      span.textContent = (burgerMenu[ing] || hotdogMenu[ing] || drinksMenu[ing]) || '?';
+      burgerEl.appendChild(span);
+    });
+  }
+
+  // Serve burger to first customer
+  function serveBurger() {
+    if(serving || customers.length === 0) return;
+    serving = true;
+
+    const firstCust = customers[0];
+    const expected = firstCust.order;
+
+    // Check if served order matches expected order exactly
+    let correct = (burger.length === expected.length);
+    if(correct) {
+      for(let i=0; i < burger.length; i++) {
+        if(burger[i] !== expected[i]) {
+          correct = false;
+          break;
+        }
+      }
     }
-  }
 
-  // Build skin selector UI
-  function buildSkinSelector(){
-    skinSelectorDiv.innerHTML = "";
-    skinColors.forEach(color => {
-      const div = document.createElement("div");
-      div.className = "skin-option";
-      div.style.backgroundColor = color;
-      if(color === selectedSkin) div.classList.add("selected");
-      if(!unlockedSkins.has(color)) div.style.opacity = 0.3;
-      div.onclick = () => {
-        if(unlockedSkins.has(color)){
-          selectedSkin = color;
-          Array.from(skinSelectorDiv.children).forEach(c => c.classList.remove("selected"));
-          div.classList.add("selected");
-          // Apply skin to all current customers
-          customers.forEach(cust => {
-            cust.skinColor = selectedSkin;
-            cust.bodyDiv.style.background = selectedSkin;
-          });
-        }
-      };
-      skinSelectorDiv.appendChild(div);
-    });
-  }
-
-  // Build hair selector UI
-  function buildHairSelector(){
-    hairSelectorDiv.innerHTML = "";
-    hairColors.forEach(color => {
-      const div = document.createElement("div");
-      div.className = "hair-option";
-      div.style.backgroundColor = color;
-      if(color === selectedHair) div.classList.add("selected");
-      if(!unlockedHairs.has(color)) div.style.opacity = 0.3;
-      div.onclick = () => {
-        if(unlockedHairs.has(color)){
-          selectedHair = color;
-          Array.from(hairSelectorDiv.children).forEach(c => c.classList.remove("selected"));
-          div.classList.add("selected");
-          // Apply hair to all current customers
-          customers.forEach(cust => {
-            cust.hairColor = selectedHair;
-            cust.bodyDiv.style.borderTop = `20px solid ${selectedHair}`;
-          });
-        }
-      };
-      hairSelectorDiv.appendChild(div);
-    });
-  }
-
-  // Save scores to leaderboard in localStorage
-  function saveScoreToLeaderboard(finalScore){
-    let leaderboard = JSON.parse(localStorage.getItem("munchzone_leaderboard")) || [];
-    const date = new Date().toLocaleDateString();
-    leaderboard.push({score: finalScore, date});
-    leaderboard.sort((a,b) => b.score - a.score);
-    leaderboard = leaderboard.slice(0, 10); // keep top 10
-    localStorage.setItem("munchzone_leaderboard", JSON.stringify(leaderboard));
-  }
-
-  // Show leaderboard overlay
-  function showLeaderboard(){
-    let leaderboard = JSON.parse(localStorage.getItem("munchzone_leaderboard")) || [];
-    if(leaderboard.length === 0) {
-      leaderboardList.innerHTML = "<p>No scores yet!</p>";
+    if(correct) {
+      // Correct order served
+      score += 10 + firstCust.tip;
+      review("Yum! Customer loved it! +"+(10 + firstCust.tip)+" points and tip 💰");
+      correctSfx.play();
+      tipSfx.play();
     } else {
-      leaderboardList.innerHTML = leaderboard.map((entry,i) =>
-        `<p>${i+1}. Score: ${entry.score} - Date: ${entry.date}</p>`
-      ).join("");
+      score -= 5;
+      review("Oops! Wrong order! -5 points");
+      wrongSfx.play();
     }
-    leaderboardOverlay.style.display = "flex";
+
+    // Remove customer and order, reset burger stack
+    customers.shift();
+    burger = [];
+    drawBurger();
+    drawCustomers();
+    updateScore();
+    updateOrder();
+
+    customersServed++;
+    if(customersServed >= maxCustomersPerDay) {
+      nextDay();
+    }
+
+    serving = false;
   }
 
-  // Show story overlay initially
-  showOverlay("story-overlay");
-</script>
+  // Show review messages temporarily
+  function review(msg, positive=true) {
+    if(reviewTimeout) clearTimeout(reviewTimeout);
+    reviewEl.style.color = positive ? 'green' : 'red';
+    reviewEl.textContent = msg;
+    reviewTimeout = setTimeout(() => {
+      reviewEl.textContent = '';
+    }, 4000);
+  }
 
+  // Update score display
+  function updateScore() {
+    scoreEl.textContent = `Score: ${score}`;
+  }
+
+  // Start a new day - reset customers and increase difficulty
+  function nextDay() {
+    dayCount++;
+    customersServed = 0;
+    maxCustomersPerDay += 2; // Increase customers per day
+    tipAmount += 2;          // Increase tips
+    customers = [];
+    for(let i=0; i<maxCustomersPerDay; i++) {
+      customers.push(createCustomer());
+    }
+    review(`Day ${dayCount} started!`);
+    drawCustomers();
+    updateOrder();
+    updateScore();
+  }
+
+  // Initialize skin and hair selectors
+  function initSelectors() {
+    skinSelector.innerHTML = '';
+    hairSelector.innerHTML = '';
+
+    skinColors.forEach((color, idx) => {
+      const div = document.createElement('div');
+      div.className = 'skin-option';
+      div.style.backgroundColor = color;
+      if(idx === selectedSkinIndex) div.classList.add('selected');
+      div.onclick = () => {
+        selectedSkinIndex = idx;
+        initSelectors();
+        updateCustomersCustomization();
+      };
+      skinSelector.appendChild(div);
+    });
+
+    hairColors.forEach((color, idx) => {
+      const div = document.createElement('div');
+      div.className = 'hair-option';
+      div.style.backgroundColor = color;
+      if(idx === selectedHairIndex) div.classList.add('selected');
+      div.onclick = () => {
+        selectedHairIndex = idx;
+        initSelectors();
+        updateCustomersCustomization();
+      };
+      hairSelector.appendChild(div);
+    });
+  }
+
+  // Update customers with new customization
+  function updateCustomersCustomization() {
+    customers.forEach(cust => {
+      cust.skinColor = skinColors[selectedSkinIndex];
+      cust.hairColor = hairColors[selectedHairIndex];
+    });
+    drawCustomers();
+  }
+
+  // Initialize game
+  function initGame() {
+    overlay.style.display = 'none';
+    storyOverlay.style.display = 'none';
+    leaderboardOverlay.style.display = 'none';
+    gameDiv.style.display = 'block';
+    score = 0;
+    dayCount = 1;
+    customersServed = 0;
+    maxCustomersPerDay = 7;
+    tipAmount = 5;
+    burger = [];
+    customers = [];
+    for(let i=0; i < maxCustomersPerDay; i++) {
+      customers.push(createCustomer());
+    }
+    initSelectors();
+    drawButtons();
+    drawBurger();
+    drawCustomers();
+    updateOrder();
+    updateScore();
+
+    // Start countdown timers for customers
+    if(timersInterval) clearInterval(timersInterval);
+    timersInterval = setInterval(updateTimers, 1000);
+
+    // Start background music
+    bgm.volume = 0.3;
+    bgm.play();
+    muteBtn.style.display = 'inline-block';
+    muteBtn.textContent = "🔇 Mute";
+  }
+
+  // Toggle mute music
+  muteBtn.onclick = () => {
+    if(bgm.paused) {
+      bgm.play();
+      muteBtn.textContent = "🔇 Mute";
+    } else {
+      bgm.pause();
+      muteBtn.textContent = "🔈 Unmute";
+    }
+  };
+
+  // Leaderboard logic (local storage)
+  function loadLeaderboard() {
+    const data = localStorage.getItem('munchzone-leaderboard');
+    if(data) return JSON.parse(data);
+    return [];
+  }
+  function saveLeaderboard(name, score) {
+    let board = loadLeaderboard();
+    board.push({name, score});
+    board.sort((a,b) => b.score - a.score);
+    if(board.length > 10) board = board.slice(0,10);
+    localStorage.setItem('munchzone-leaderboard', JSON.stringify(board));
+  }
+  function showLeaderboard() {
+    overlay.style.display = 'none';
+    storyOverlay.style.display = 'none';
+    gameDiv.style.display = 'none';
+    leaderboardOverlay.style.display = 'flex';
+
+    const board = loadLeaderboard();
+    leaderboardList.innerHTML = '';
+    if(board.length === 0) leaderboardList.textContent = "No scores yet!";
+    else {
+      board.forEach((entry, idx) => {
+        const div = document.createElement('div');
+        div.textContent = `${idx+1}. ${entry.name}: ${entry.score}`;
+        leaderboardList.appendChild(div);
+      });
+    }
+  }
+  closeLeaderboardBtn.onclick = () => {
+    leaderboardOverlay.style.display = 'none';
+    overlay.style.display = 'flex';
+  };
+
+  // Event Listeners for start menu buttons
+  showStoryBtn.onclick = () => {
+    overlay.style.display = 'none';
+    storyOverlay.style.display = 'flex';
+  };
+  showLeaderboardBtn.onclick = () => {
+    showLeaderboard();
+  };
+  startFromStoryBtn.onclick = () => {
+    initGame();
+  };
+
+  // Show start menu initially
+  overlay.style.display = 'flex';
+
+  // When game ends (optional): prompt for name and save score
+  function endGame() {
+    clearInterval(timersInterval);
+    bgm.pause();
+    const name = prompt("Game over! Enter your name for the leaderboard:", "Player");
+    if(name) saveLeaderboard(name.trim() || "Player", score);
+    overlay.style.display = 'flex';
+    gameDiv.style.display = 'none';
+    reviewEl.textContent = '';
+    customers = [];
+  }
+
+  // Auto-end game after 3 days (example)
+  setInterval(() => {
+    if(dayCount > 3) {
+      endGame();
+    }
+  }, 1000);
+
+</script>
 </body>
 </html>
