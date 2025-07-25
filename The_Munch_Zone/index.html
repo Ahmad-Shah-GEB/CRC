@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>🍔 The Munch Zone 🍟</title>
+  <style>
+    body {
+      margin: 0; padding: 0;
+      font-family: 'Comic Sans MS', cursive;
+      background: url('restaurant.jpg') no-repeat center/cover;
+      color: #222;
+    }
+    #overlay, #story-overlay, #leaderboard-overlay {
+      position: fixed; top: 0; left: 0;
+      width: 100%; height: 100%;
+      backdrop-filter: blur(6px);
+      background: rgba(0, 0, 0, 0.7);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 20;
+      color: #fff;
+      padding: 20px;
+      box-sizing: border-box;
+      text-align: center;
+    }
+    #start-menu, #game, #story-content, #leaderboard-content {
+      background: rgba(255, 255, 255, 0.9);
+      padding: 20px; border-radius: 12px;
+      max-width: 400px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+      color: #222;
+      width: 100%;
+    }
+    #start-menu button, #story-content button, #leaderboard-content button {
+      padding: 10px 20px;
+      margin: 10px 5px;
+      font-size: 20px;
+      cursor: pointer;
+      border-radius: 6px;
+      border: 2px solid #444;
+      background: #fff;
+      color: #222;
+      transition: background 0.3s;
+    }
+    #start-menu button:hover, #story-content button:hover, #leaderboard-content button:hover {
+      background: #8ecae6;
+      color: #000;
+    }
+    .customer-row {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 20px;
+      margin-bottom: 20px;
+
+      /* NEW LINES BELOW */
+      max-height: 280px; /* adjust this height as needed */
+      overflow-y: auto;
+    }
+
+    .customer {
+      display: flex; flex-direction: column; align-items: center; margin: 10px;
+      position: relative;
+      width: 70px;
+      user-select: none;
+    }
+    .timer {
+      font-size: 16px; margin-bottom: 5px; color: #444;
+      font-weight: bold;
+    }
+    .head {
+      font-size: 50px;
+      user-select: none;
+    }
+    .body {
+      width: 60px; height: 100px; border-radius: 10px; margin-top: 5px;
+      background: #8ecae6;
+      position: relative;
+      border: 2px solid #444;
+    }
+    .angry .head { color: red; }
+    .angry .body { background: #ff4d4d; }
+    #order { font-size: 24px; margin-bottom: 20px; font-weight: bold; }
+    #buttons-container {
+      display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-bottom: 20px;
+    }
+    #burger { min-height: 150px; margin-top: 20px; user-select: none; }
+    .ingredient { font-size: 28px; margin: 0 2px; }
+    #result { font-size: 24px; min-height: 28px; margin-top: 20px; }
+    #score { font-size: 20px; margin-top: 10px; }
+    #review { font-size: 24px; margin-top: 30px; color: #222; }
+    #mute-btn {
+      position: fixed; top: 10px; right: 10px; z-index: 21;
+      background: #fff;
+      border: 2px solid #444;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 20px;
+      padding: 5px 10px;
+      display:none;
+    }
+    .tip-jar {
+      position: absolute;
+      bottom: 5px; right: -20px;
+      background: gold;
+      border-radius: 50%;
+      width: 20px; height: 20px;
+      text-align: center;
+      font-weight: bold;
+      font-size: 14px;
+      line-height: 20px;
+      color: #444;
+      user-select: none;
+    }
+    #skin-selector, #hair-selector {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 15px;
+    }
+    .skin-option, .hair-option {
+      width: 40px; height: 40px;
+      border-radius: 50%;
+      border: 2px solid #444;
+      cursor: pointer;
+      box-sizing: border-box;
+      transition: border-color 0.3s;
+    }
+    .selected {
+      border-color: #2196f3 !important;
+      box-shadow: 0 0 8px #2196f3;
+    }
+    #leaderboard-list {
+      text-align: left;
+      max-height: 300px;
+      overflow-y: auto;
+      margin-bottom: 20px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Overlays -->
+
+  <div id="story-overlay">
+    <div id="story-content">
+      <h1>The Munch Zone</h1>
+      <p><em>Meet Jake, once a top chef at a fancy restaurant.</em></p>
+      <p>After getting unfairly kicked out from his old job, he decided to open his own quirky burger and hotdog joint — The Munch Zone.</p>
+      <p>Your job? Help Jake serve customers fast and accurate to keep the business alive!</p>
+      <button id="start-from-story-btn">Start Game</button>
+    </div>
+  </div>
+
+  <div id="leaderboard-overlay" style="display:none;">
+    <div id="leaderboard-content">
+      <h2>🏆 Leaderboard</h2>
+      <div id="leaderboard-list"></div>
+      <button id="close-leaderboard-btn">Close</button>
+    </div>
+  </div>
+
+  <!-- Game UI -->
+  <button id="mute-btn">🔇 Mute</button>
+
+  <div id="overlay" style="display:none;">
+    <div id="start-menu">
+      <h1>The Munch Zone</h1>
+      <button id="show-story-btn">Backstory</button>
+      <button id="show-leaderboard-btn">Leaderboard</button>
+    </div>
+  </div>
+
+  <div id="game" style="display:none;">
+    <div class="customer-row" id="customers"></div>
+    <div id="order">First customer wants:</div>
+
+    <!-- Skin & Hair selectors -->
+    <div id="skin-selector" title="Select skin color"></div>
+    <div id="hair-selector" title="Select hair color"></div>
+
+    <div id="buttons-container"></div>
+    <div id="burger"></div>
+    <button onclick="serveBurger()">🍽 Serve</button>
+    <div id="result"></div>
+    <div id="score">Score: 0</div>
+    <div id="review"></div>
+  </div>
+
+  <!-- Audio -->
+  <audio id="bgm" src="jazz.mp3" loop preload="auto"></audio>
+  <audio id="correct-sfx" src="correct.wav" preload="auto"></audio>
+  <audio id="wrong-sfx" src="wrong.wav" preload="auto"></audio>
+  <audio id="tip-sfx" src="tip.wav" preload="auto"></audio>
+
+<script>
+  // Menus and faces
+  const burgerMenu = { "Bun Top":"🥯","Lettuce":"🥬","Patty":"🍖","Cheese":"🧀","Bun Bottom":"🥯" };
+  const hotdogMenu = { "Hotdog Bun Top":"🌭","Ketchup":"🍅","Mustard":"🌟","Relish":"🥒","Hotdog Bun Bottom":"🌭" };
+  const drinksMenu = { "Water":"💧","Soda":"🥤","Coffee":"☕" };
+  const customerFaces = ["😀","😃","😄","😆","😊","😎"];
+  const angryFace = "😡";
+
+  // Customizable skin and hair options
+  const skinColors = ['#f1c27d','#e0ac69','#c68642','#8d5524','#fce1c1'];
+  const hairColors = ['#000000','#8b4513','#ffeb3b','#c71585','#4b0082'];
+
+  let playerBurger = [], score = 0, wrong = 0, customers = [], customersServed = 0;
+  let maxCustomers = 7, level = "burger", spawnInterval = null;
+  let selectedSkin = skinColors[0], selectedHair = hairColors[0];
+  let unlockedSkins = new Set([skinColors[0]]); // unlock default skin at start
+  let unlockedHairs = new Set([hairColors[0]]); // unlock default hair at start
+  let tipsCollected = 0;
+
+  const bgm = document.getElementById("bgm");
+  const correctSfx = document.getElementById("correct-sfx");
+  const wrongSfx = document.getElementById("wrong-sfx");
+  const tipSfx = document.getElementById("tip-sfx");
+  const muteBtn = document.getElementById("mute-btn");
+
+  const customersDiv = document.getElementById("customers");
+  const burgerDiv = document.getElementById("burger");
+  const resultDiv = document.getElementById("result");
+  const scoreDiv = document.getElementById("score");
+  const orderDiv = document.getElementById("order");
+  const reviewDiv = document.getElementById("review");
+  const buttonsContainer = document.getElementById("buttons-container");
+  const overlay = document.getElementById("overlay");
+  const gameDiv = document.getElementById("game");
+
+  // Story and leaderboard elements
+  const storyOverlay = document.getElementById("story-overlay");
+  const leaderboardOverlay = document.getElementById("leaderboard-overlay");
+  const leaderboardList = document.getElementById("leaderboard-list");
+  const skinSelectorDiv = document.getElementById("skin-selector");
+  const hairSelectorDiv = document.getElementById("hair-selector");
+
+  class Customer {
+    constructor(id) {
+      this.id = id;
+      this.order = this.randomOrder();
+      this.timer = 20;
+      this.remaining = this.timer;
+      this.interval = null;
+      this.tipJar = 0;
+      this.createElement();
+      this.startTimer();
+    }
+    createElement() {
+      this.element = document.createElement("div");
+      this.element.className = "customer";
+      this.headDiv = document.createElement("div");
+      this.headDiv.className = "head";
+      this.bodyDiv = document.createElement("div");
+      this.bodyDiv.className = "body";
+
+      // Apply chosen skin and hair for this customer
+      this.applySkinHair();
+
+      this.timerDiv = document.createElement("div");
+      this.timerDiv.className = "timer";
+      this.timerDiv.textContent = `⏳ ${this.remaining}`;
+
+      this.tipJarDiv = document.createElement("div");
+      this.tipJarDiv.className = "tip-jar";
+      this.tipJarDiv.style.display = "none";
+
+      this.element.appendChild(this.timerDiv);
+      this.element.appendChild(this.headDiv);
+      this.element.appendChild(this.bodyDiv);
+      this.element.appendChild(this.tipJarDiv);
+      customersDiv.appendChild(this.element);
+
+      // Random face on head
+      this.setFace(this.randomHappyFace());
+    }
+    applySkinHair() {
+      // For demo: Randomize from unlocked skins and hairs
+      const skinsArr = Array.from(unlockedSkins);
+      const hairsArr = Array.from(unlockedHairs);
+      this.skinColor = skinsArr[Math.floor(Math.random()*skinsArr.length)];
+      this.hairColor = hairsArr[Math.floor(Math.random()*hairsArr.length)];
+
+      this.bodyDiv.style.background = this.skinColor;
+      this.bodyDiv.style.borderColor = this.hairColor;
+      // Hair represented by top border color
+      this.bodyDiv.style.borderTop = `20px solid ${this.hairColor}`;
+    }
+    setFace(face) {
+      this.headDiv.textContent = face;
+    }
+    startTimer() {
+      this.interval = setInterval(() => {
+        this.remaining--;
+        this.timerDiv.textContent = `⏳ ${this.remaining}`;
+        if(this.remaining <= 0) this.leaveAngrily();
+      }, 1000);
+    }
+    randomOrder() {
+      if(level === "burger") {
+        let o = ["Bun Top"];
+        const mid = ["Lettuce","Patty","Cheese"];
+        for(let i=0;i<Math.floor(Math.random()*3)+1;i++) o.push(mid[Math.floor(Math.random()*mid.length)]);
+        o.push("Bun Bottom");
+        return o;
+      }
+      if(level === "hotdog") {
+        let o = ["Hotdog Bun Top"];
+        const mid = ["Ketchup","Mustard","Relish"];
+        for(let i=0;i<Math.floor(Math.random()*3)+1;i++) o.push(mid[Math.floor(Math.random()*mid.length)]);
+        o.push("Hotdog Bun Bottom");
+        return o;
+      }
+      let d = Object.keys(drinksMenu);
+      return [d[Math.floor(Math.random()*d.length)]];
+    }
+    randomHappyFace() {
+      return customerFaces[Math.floor(Math.random()*customerFaces.length)];
+    }
+    leaveAngrily() {
+      clearInterval(this.interval);
+      this.setFace(angryFace);
+      this.element.classList.add("angry");
+      customersServed++; wrong++;
+      setTimeout(() => {
+        this.element.remove();
+        customers = customers.filter(c => c !== this);
+        updateOrderDisplay();
+        checkDayEnd();
+      }, 1000);
+    }
+    serve(b) {
+      clearInterval(this.interval);
+      const correct = JSON.stringify(b) === JSON.stringify(this.order);
+      if(correct) {
+        score++;
+        resultDiv.textContent = "✅ Perfect!";
+        this.setFace(this.randomHappyFace());
+        correctSfx.play();
+        // Add tip if service is good (random 1-5)
+        this.tipJar = Math.floor(Math.random()*5)+1;
+        this.tipJarDiv.textContent = `💰${this.tipJar}`;
+        this.tipJarDiv.style.display = "block";
+        tipsCollected += this.tipJar;
+        tipSfx.play();
+        updateScoreDisplay();
+      } else {
+        wrong++;
+        resultDiv.textContent = "❌ Wrong!";
+        this.setFace(angryFace);
+        this.element.classList.add("angry");
+        wrongSfx.play();
+        updateScoreDisplay();
+      }
+      customersServed++;
+      setTimeout(() => {
+        this.element.remove();
+        customers = customers.filter(c => c !== this);
+        updateOrderDisplay();
+        checkDayEnd();
+      }, 1000);
+    }
+  }
+
+  // Show/hide overlays
+  function showOverlay(id) {
+    document.getElementById(id).style.display = "flex";
+  }
+  function hideOverlay(id) {
+    document.getElementById(id).style.display = "none";
+  }
+
+  // Game start after story
+  document.getElementById("start-from-story-btn").onclick = () => {
+    hideOverlay("story-overlay");
+    startGame();
+  };
+
+  // Show story on button
+  document.getElementById("show-story-btn").onclick = () => {
+    hideOverlay("overlay");
+    showOverlay("story-overlay");
+  };
+
+  // Show leaderboard
+  document.getElementById("show-leaderboard-btn").onclick = () => {
+    hideOverlay("overlay");
+    showLeaderboard();
+  };
+
+  // Close leaderboard
+  document.getElementById("close-leaderboard-btn").onclick = () => {
+    hideOverlay("leaderboard-overlay");
+    showOverlay("overlay");
+  };
+
+  // Mute toggle
+  muteBtn.addEventListener("click", () => {
+    const muted = bgm.muted;
+    bgm.muted = !muted;
+    correctSfx.muted = !muted;
+    wrongSfx.muted = !muted;
+    tipSfx.muted = !muted;
+    muteBtn.textContent = bgm.muted ? "🔈 Unmute" : "🔇 Mute";
+  });
+
+  // Start game function
+  function startGame(){
+    overlay.style.display = "none";
+    gameDiv.style.display = "block";
+    muteBtn.style.display = "block";
+    bgm.play();
+    resetGame();
+    updateButtonsForLevel();
+    startSpawning();
+    buildSkinSelector();
+    buildHairSelector();
+  }
+
+  function resetGame() {
+    playerBurger = [];
+    score = 0;
+    wrong = 0;
+    customers = [];
+    customersServed = 0;
+    tipsCollected = 0;
+    maxCustomers = 7;
+    level = "burger";
+    scoreDiv.textContent = "Score: 0";
+    reviewDiv.innerHTML = "";
+    resultDiv.innerHTML = "";
+    burgerDiv.innerHTML = "";
+    buttonsContainer.style.display = "flex";
+    customersDiv.innerHTML = "";
+  }
+
+  function addIngredient(ing){
+    playerBurger.push(ing);
+    const span = document.createElement("span");
+    span.className = "ingredient";
+    const menu = {...burgerMenu, ...hotdogMenu, ...drinksMenu};
+    span.textContent = menu[ing] || ing;
+    burgerDiv.appendChild(span);
+  }
+
+  function serveBurger(){
+    if(customers[0]) {
+      customers[0].serve(playerBurger);
+      playerBurger = [];
+      burgerDiv.innerHTML = "";
+    }
+  }
+
+  function updateScoreDisplay(){
+    scoreDiv.textContent = `Score: ${score} | Tips: $${tipsCollected}`;
+  }
+
+  // Update order display for first customer
+  function updateOrderDisplay(){
+    if(customers.length === 0){
+      orderDiv.textContent = "Waiting for customers...";
+      buttonsContainer.style.display = "none";
+      showDayReview();
+      return;
+    }
+    buttonsContainer.style.display = "flex";
+    let orderStr = "Next customer wants: ";
+    let menu = {...burgerMenu, ...hotdogMenu, ...drinksMenu};
+    orderStr += customers[0].order.map(o => menu[o] || o).join(" ");
+    orderDiv.textContent = orderStr;
+  }
+
+  // Spawn customers every 5 sec max
+  function startSpawning(){
+    spawnInterval = setInterval(() => {
+      if(customers.length < maxCustomers){
+        const cust = new Customer(Date.now());
+        customers.push(cust);
+        updateOrderDisplay();
+      }
+    }, 5000);
+  }
+
+  function checkDayEnd(){
+    if(customersServed >= maxCustomers) {
+      clearInterval(spawnInterval);
+      buttonsContainer.style.display = "none";
+      orderDiv.textContent = "Day ended!";
+
+      setTimeout(() => {
+        showDayReview();
+      }, 1000);
+    }
+  }
+
+  function showDayReview(){
+    let reviewText = `<h3>Day Review:</h3>`;
+    reviewText += `<p>Customers Served: ${customersServed}</p>`;
+    reviewText += `<p>Correct Orders: ${score}</p>`;
+    reviewText += `<p>Wrong Orders: ${wrong}</p>`;
+    reviewText += `<p>Tips Earned: $${tipsCollected}</p>`;
+
+    reviewDiv.innerHTML = reviewText;
+
+    saveScoreToLeaderboard(score + tipsCollected);
+
+    // Reset after 5 seconds to start again
+    setTimeout(() => {
+      reviewDiv.innerHTML = "";
+      resetGame();
+    }, 7000);
+  }
+
+  // Update buttons for current level (burger/hotdog/drinks)
+  function updateButtonsForLevel(){
+    buttonsContainer.innerHTML = "";
+    let menu = {};
+    if(level === "burger") menu = burgerMenu;
+    else if(level === "hotdog") menu = hotdogMenu;
+    else menu = drinksMenu;
+
+    for(let ing in menu){
+      const btn = document.createElement("button");
+      btn.textContent = menu[ing];
+      btn.title = ing;
+      btn.onclick = () => addIngredient(ing);
+      buttonsContainer.appendChild(btn);
+    }
+  }
+
+  // Build skin selector UI
+  function buildSkinSelector(){
+    skinSelectorDiv.innerHTML = "";
+    skinColors.forEach(color => {
+      const div = document.createElement("div");
+      div.className = "skin-option";
+      div.style.backgroundColor = color;
+      if(color === selectedSkin) div.classList.add("selected");
+      if(!unlockedSkins.has(color)) div.style.opacity = 0.3;
+      div.onclick = () => {
+        if(unlockedSkins.has(color)){
+          selectedSkin = color;
+          Array.from(skinSelectorDiv.children).forEach(c => c.classList.remove("selected"));
+          div.classList.add("selected");
+          // Apply skin to all current customers
+          customers.forEach(cust => {
+            cust.skinColor = selectedSkin;
+            cust.bodyDiv.style.background = selectedSkin;
+          });
+        }
+      };
+      skinSelectorDiv.appendChild(div);
+    });
+  }
+
+  // Build hair selector UI
+  function buildHairSelector(){
+    hairSelectorDiv.innerHTML = "";
+    hairColors.forEach(color => {
+      const div = document.createElement("div");
+      div.className = "hair-option";
+      div.style.backgroundColor = color;
+      if(color === selectedHair) div.classList.add("selected");
+      if(!unlockedHairs.has(color)) div.style.opacity = 0.3;
+      div.onclick = () => {
+        if(unlockedHairs.has(color)){
+          selectedHair = color;
+          Array.from(hairSelectorDiv.children).forEach(c => c.classList.remove("selected"));
+          div.classList.add("selected");
+          // Apply hair to all current customers
+          customers.forEach(cust => {
+            cust.hairColor = selectedHair;
+            cust.bodyDiv.style.borderTop = `20px solid ${selectedHair}`;
+          });
+        }
+      };
+      hairSelectorDiv.appendChild(div);
+    });
+  }
+
+  // Save scores to leaderboard in localStorage
+  function saveScoreToLeaderboard(finalScore){
+    let leaderboard = JSON.parse(localStorage.getItem("munchzone_leaderboard")) || [];
+    const date = new Date().toLocaleDateString();
+    leaderboard.push({score: finalScore, date});
+    leaderboard.sort((a,b) => b.score - a.score);
+    leaderboard = leaderboard.slice(0, 10); // keep top 10
+    localStorage.setItem("munchzone_leaderboard", JSON.stringify(leaderboard));
+  }
+
+  // Show leaderboard overlay
+  function showLeaderboard(){
+    let leaderboard = JSON.parse(localStorage.getItem("munchzone_leaderboard")) || [];
+    if(leaderboard.length === 0) {
+      leaderboardList.innerHTML = "<p>No scores yet!</p>";
+    } else {
+      leaderboardList.innerHTML = leaderboard.map((entry,i) =>
+        `<p>${i+1}. Score: ${entry.score} - Date: ${entry.date}</p>`
+      ).join("");
+    }
+    leaderboardOverlay.style.display = "flex";
+  }
+
+  // Show story overlay initially
+  showOverlay("story-overlay");
+</script>
+
+</body>
+</html>
