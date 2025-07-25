@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Cyber Zombie Survival</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
+  html, body {
+    margin: 0; padding: 0; height: 100%;
+    background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+    font-family: 'Share Tech Mono', monospace;
+    overflow: hidden;
+    color: #00ffff;
+    user-select: none;
+  }
+  #container {
+    position: relative;
+    width: 800px;
+    height: 500px;
+    margin: 2em auto;
+    background: #121416;
+    border: 3px solid #00ffff;
+    box-shadow: 0 0 15px #00ffffaa;
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  canvas {
+    display: block;
+    background: #121416;
+    border-radius: 12px;
+  }
+  #overlay {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: #000d1aee;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 20px;
+    box-sizing: border-box;
+    z-index: 10;
+    color: #00ffff;
+    font-size: 18px;
+  }
+  #overlay h1 {
+    font-size: 48px;
+    margin-bottom: 10px;
+    text-shadow: 0 0 10px #00ffffaa;
+  }
+  #overlay p {
+    max-width: 480px;
+    margin: 10px auto 30px;
+    line-height: 1.4;
+    color: #a0ffff;
+  }
+  #startButton {
+    padding: 14px 40px;
+    font-size: 22px;
+    border: 2px solid #00ffff;
+    background: transparent;
+    color: #00ffff;
+    cursor: pointer;
+    border-radius: 8px;
+    transition: background 0.3s ease, color 0.3s ease;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    box-shadow: 0 0 10px #00ffffaa;
+  }
+  #startButton:hover {
+    background: #00ffff;
+    color: #121416;
+  }
+  #instructions {
+    margin-top: 10px;
+    font-size: 16px;
+    color: #44eeffcc;
+  }
+  #waveMessage {
+    position: absolute;
+    top: 5px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 22px;
+    font-weight: bold;
+    text-shadow: 0 0 6px #00ffffaa;
+    user-select: none;
+  }
+  #shop {
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
+    background: #002233dd;
+    padding: 12px 16px;
+    border-radius: 8px;
+    border: 1.5px solid #00ffffcc;
+    display: none;
+  }
+  #shop button {
+    margin: 5px;
+    background: #004466cc;
+    border: none;
+    color: #00ffff;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 16px;
+    padding: 8px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.3s ease;
+  }
+  #shop button:hover {
+    background: #00ffff;
+    color: #121416;
+  }
+  #pointsDisplay {
+    position: absolute;
+    top: 40px;
+    right: 20px;
+    font-size: 18px;
+    user-select: none;
+    text-shadow: 0 0 6px #00ffffaa;
+  }
+  #instructions {
+    position: absolute;
+    top: 70px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 16px;
+    user-select: none;
+    color: #33ffffbb;
+    text-shadow: 0 0 4px #22ccffbb;
+    display: none;
+  }
+</style>
+</head>
+<body>
+
+<div id="container">
+  <canvas id="gameCanvas" width="800" height="500"></canvas>
+  <div id="pointsDisplay">Points: 0</div>
+
+  <div id="overlay">
+    <h1>Cyber Zombie Survival</h1>
+    <p>Survive waves of zombies and build the escape beacon to win!<br>
+      Controls: WASD or Arrows to move, Mouse click to shoot, E to build beacon, P to pause.<br>
+      After each wave, buy health or ammo to prepare.<br>
+      Good luck, survivor!</p>
+    <button id="startButton">Start Game</button>
+  </div>
+
+  <div id="waveMessage"></div>
+  <div id="shop">
+    <button id="buyHealth">Buy Health (20 pts)</button>
+    <button id="buyAmmo">Buy Ammo (15 pts)</button>
+  </div>
+  <div id="instructions"></div>
+</div>
+
+<script>
+(() => {
+  const canvas = document.getElementById('gameCanvas');
+  const ctx = canvas.getContext('2d');
+  const overlay = document.getElementById('overlay');
+  const startButton = document.getElementById('startButton');
+  const waveMessage = document.getElementById('waveMessage');
+  const shop = document.getElementById('shop');
+  const buyHealthBtn = document.getElementById('buyHealth');
+  const buyAmmoBtn = document.getElementById('buyAmmo');
+  const instructions = document.getElementById('instructions');
+  const pointsDisplay = document.getElementById('pointsDisplay');
+
+  // Player object
+  const player = {
+    x: 50,
+    y: canvas.height/2 - 20,
+    width: 32,
+    height: 40,
+    speed: 3,
+    maxHealth: 100,
+    health: 100,
+    maxAmmo: 12,
+    ammo: 12,
+    reloadTime: 90,
+    reloadCounter: 0,
+    reloading: false,
+    shootCooldown: 0
+  };
+
+  // Beacon settings
+  const beaconSize = 48;
+  const beaconX = canvas.width - beaconSize - 30;
+  const beaconY = canvas.height/2 - beaconSize/2;
+  const beaconBuildDistance = 50;
+
+  // Game variables
+  let gameStarted = false;
+  let gameOver = false;
+  let paused = false;
+  let wave = 0;
+  let points = 0;
+  let zombies = [];
+  let bullets = [];
+  let zombiesToSpawn = 0;
+  let spawnCooldown = 0;
+  let buildingEscape = false;
+  let escapeProgress = 0;
+  let finalWaveReached = false;
+  let waveCountdown = 0;
+  let keys = {};
+  let mouseDown = false;
+  let mousePos = {x: 0, y: 0};
+
+  // Sound helpers
+  function beep(freq, duration) {
+    if (!gameStarted) return;
+    try {
+      if (!window.sharedAudioContext) {
+        window.sharedAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      const context = window.sharedAudioContext;
+      if (context.state === 'suspended') {
+        context.resume();
+      }
+      const oscillator = context.createOscillator();
+      const gainNode = context.createGain();
+      oscillator.frequency.value = freq;
+      oscillator.type = 'square';
+      oscillator.connect(gainNode);
+      gainNode.connect(context.destination);
+      oscillator.start();
+      gainNode.gain.setValueAtTime(0.1, context.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + duration/1000);
+      oscillator.stop(context.currentTime + duration/1000);
+    } catch(e) {
+      console.error('Audio error:', e);
+    }
+  }
+
+  // Spawn a zombie on the right edge, random vertical position
+  function spawnZombie() {
+    const size = 32 + Math.random() * 16;
+    zombies.push({
+      x: canvas.width + size + Math.random()*50,
+      y: Math.random() * (canvas.height - size),
+      width: size,
+      height: size,
+      speed: 0.4 + wave * 0.05,
+      health: 50 + wave * 10,
+      oscillateOffset: Math.random() * 10,
+      color1: '#006622',
+      color2: '#004411'
+    });
+  }
+
+  // Shoot bullet function
+  function shoot() {
+    if (player.ammo <= 0 || player.reloading) {
+      beep(250, 150);
+      return;
+    }
+
+    bullets.push({
+      x: player.x + player.width,
+      y: player.y + player.height/2 - 3,
+      width: 8,
+      height: 6,
+      speed: 7,
+      damage: 25
+    });
+
+    player.ammo--;
+    beep(800, 50);
+  }
+
+  // Update shop buttons
+  function updateShopButtons() {
+    buyHealthBtn.disabled = points < 20 || player.health >= player.maxHealth;
+    buyAmmoBtn.disabled = points < 15;
+  }
+
+  // Buy health
+  buyHealthBtn.onclick = () => {
+    if (points >= 20 && player.health < player.maxHealth) {
+      player.health = Math.min(player.maxHealth, player.health + 35);
+      points -= 20;
+      updatePoints();
+      updateShopButtons();
+    }
+  };
+
+  // Buy ammo (now increases max ammo by +5)
+  buyAmmoBtn.onclick = () => {
+    if (points >= 15) {
+      player.maxAmmo += 5;
+      player.ammo = player.maxAmmo;
+      player.reloading = false;
+      points -= 15;
+      updatePoints();
+      updateShopButtons();
+    }
+  };
+
+  // Update points display
+  function updatePoints() {
+    pointsDisplay.textContent = `Points: ${points}`;
+  }
+
+  // Game over handler
+  function gameOverFunc(win = false) {
+    gameOver = true;
+    paused = false;
+    waveMessage.style.display = 'block';
+    waveMessage.style.color = win ? '#00ff00' : '#ff4040';
+    waveMessage.textContent = win ? 'YOU ESCAPED! CONGRATS!' : 'GAME OVER - You died!';
+    shop.style.display = 'none';
+    instructions.style.display = 'none';
+    setTimeout(() => {
+      waveMessage.textContent += '\nReload page to play again.';
+    }, 1500);
+  }
+
+  // Update escape beacon building progress
+  function updateEscapeProgress() {
+    const dx = (player.x + player.width/2) - (beaconX + beaconSize/2);
+    const dy = (player.y + player.height/2) - (beaconY + beaconSize/2);
+    const dist = Math.sqrt(dx * dx + dy * dy);
+
+    if (dist <= beaconBuildDistance && keys['e']) {
+      escapeProgress += 0.8;
+      if (escapeProgress > 100) escapeProgress = 100;
+    } else {
+      escapeProgress -= 0.3;
+      if (escapeProgress < 0) escapeProgress = 0;
+    }
+
+    if (escapeProgress >= 100) {
+      gameOverFunc(true);
+    }
+  }
+
+  // Start next wave setup
+  function startWave() {
+    wave++;
+    zombiesToSpawn = Math.max(3, 6 + wave * 2 - 2);
+    spawnCooldown = 0;
+    buildingEscape = false;
+    escapeProgress = 0;
+    waveCountdown = 0;
+    waveMessage.style.display = 'none';
+    instructions.style.display = 'none';
+    shop.style.display = 'none';
+
+    // Check if final wave (10) reached
+    if (wave >= 10 && !finalWaveReached) {
+      finalWaveReached = true;
+      waveMessage.style.display = 'block';
+      waveMessage.style.color = '#00ffff';
+      waveMessage.textContent = 'Final wave complete! Build the escape beacon by holding E near it!';
+      instructions.style.display = 'block';
+      instructions.textContent = 'Hold E near beacon to build it...';
+      shop.style.display = 'none';
+    }
+  }
+
+  // Start game function
+  function startGame() {
+    overlay.style.display = 'none';
+    gameStarted = true;
+    gameOver = false;
+    paused = false;
+    wave = 0;
+    points = 0;
+    player.health = player.maxHealth;
+    player.ammo = player.maxAmmo;
+    zombies = [];
+    bullets = [];
+    buildingEscape = false;
+    escapeProgress = 0;
+    finalWaveReached = false;
+    waveCountdown = 0;
+    updatePoints();
+    startWave();
+    requestAnimationFrame(gameLoop);
+  }
+
+  // Update game logic per frame
+  function update() {
+    if (!gameStarted || paused || gameOver) return;
+
+    // Player movement
+    if (keys['w'] || keys['arrowup']) player.y -= player.speed;
+    if (keys['s'] || keys['arrowdown']) player.y += player.speed;
+    if (keys['a'] || keys['arrowleft']) player.x -= player.speed;
+    if (keys['d'] || keys['arrowright']) player.x += player.speed;
+
+    // Keep player inside canvas
+    if (player.x < 0) player.x = 0;
+    if (player.x + player.width > canvas.width) player.x = canvas.width - player.width;
+    if (player.y < 0) player.y = 0;
+    if (player.y + player.height > canvas.height) player.y = canvas.height - player.height;
+
+    // Reloading
+    if (player.reloading) {
+      player.reloadCounter++;
+      if (player.reloadCounter >= player.reloadTime) {
+        player.ammo = player.maxAmmo;
+        player.reloading = false;
+        beep(600, 100);
+      }
+    }
+
+    // Shooting
+    if (mouseDown && player.shootCooldown <= 0 && !player.reloading) {
+      if (player.ammo > 0) {
+        shoot();
+        player.shootCooldown = 12;
+      } else {
+        beep(250, 150);
+      }
+    }
+    if (player.shootCooldown > 0) player.shootCooldown--;
+
+    // Spawn zombies
+    if (zombiesToSpawn > 0) {
+      if (spawnCooldown <= 0) {
+        spawnZombie();
+        zombiesToSpawn--;
+        spawnCooldown = 40 + Math.floor(Math.random() * 30);
+      } else {
+        spawnCooldown--;
+      }
+    }
+
+    // Update bullets
+    for (let i = bullets.length - 1; i >= 0; i--) {
+      const b = bullets[i];
+      b.x += b.speed;
+      if (b.x > canvas.width) {
+        bullets.splice(i, 1);
+        continue;
+      }
+
+      // Bullet-zombie collision
+      for (let j = zombies.length - 1; j >= 0; j--) {
+        const z = zombies[j];
+        if (
+          b.x < z.x + z.width &&
+          b.x + b.width > z.x &&
+          b.y < z.y + z.height &&
+          b.y + b.height > z.y
+        ) {
+          z.health -= b.damage;
+          bullets.splice(i, 1);
+          if (z.health <= 0) {
+            points += 8 + Math.floor(wave * 1.5);
+            zombies.splice(j, 1);
+            updatePoints();
+          }
+          break;
+        }
+      }
+    }
+
+    // Update zombies
+    zombies.forEach(z => {
+      z.y += Math.sin(performance.now() / 300 + z.oscillateOffset) * 0.3;
+
+      if (z.x > player.x + player.width / 2) z.x -= z.speed;
+      else if (z.x < player.x + player.width / 2) z.x += z.speed / 4;
+
+      if (z.y + z.height/2 < player.y + player.height/2) z.y += z.speed / 2;
+      else z.y -= z.speed / 2;
+
+      if (z.y < 0) z.y = 0;
+      if (z.y + z.height > canvas.height) z.y = canvas.height - z.height;
+
+      // Zombie-player collision
+      if (
+        player.x < z.x + z.width &&
+        player.x + player.width > z.x &&
+        player.y < z.y + z.height &&
+        player.y + player.height > z.y
+      ) {
+        player.health -= 0.3;
+        z.x += 2;
+        if (player.health <= 0) gameOverFunc(false);
+      }
+    });
+
+    // Wave completion check
+    if (zombies.length === 0 && zombiesToSpawn === 0 && !buildingEscape) {
+      if (finalWaveReached) {
+        // Beacon building handled separately
+      } else {
+        waveMessage.style.display = 'block';
+        waveMessage.style.color = '#00ffff';
+        waveMessage.textContent = 'Wave cleared! Buy upgrades then press N to start next wave.';
+        instructions.style.display = 'block';
+        instructions.textContent = 'N = Next Wave | P = Pause';
+        shop.style.display = 'block';
+        updateShopButtons();
+        buildingEscape = true;
+      }
+    }
+
+    // Build beacon if final wave reached
+    if (finalWaveReached) {
+      updateEscapeProgress();
+    }
+  }
+
+  // Draw everything
+  function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Draw beacon
+    ctx.save();
+    ctx.shadowColor = '#00ffff88';
+    ctx.shadowBlur = 20;
+    ctx.fillStyle = '#003344';
+    ctx.fillRect(beaconX, beaconY, beaconSize, beaconSize);
+    ctx.fillStyle = '#00ffffcc';
+    ctx.fillRect(beaconX + 12, beaconY + 12, beaconSize - 24, beaconSize - 24);
+    ctx.restore();
+
+    // Beacon progress bar
+    if (finalWaveReached) {
+      ctx.fillStyle = '#00ffff';
+      ctx.fillRect(beaconX, beaconY - 15, beaconSize * (escapeProgress / 100), 8);
+      ctx.strokeStyle = '#0088aa';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(beaconX, beaconY - 15, beaconSize, 8);
+    }
+
+    // Draw player
+    ctx.save();
+    ctx.fillStyle = '#00ffff';
+    ctx.shadowColor = '#00ffffdd';
+    ctx.shadowBlur = 15;
+    ctx.fillRect(player.x, player.y, player.width, player.height);
+
+    // Eyes
+    ctx.fillStyle = '#112233';
+    ctx.fillRect(player.x + 6, player.y + 10, 7, 8);
+    ctx.fillRect(player.x + player.width - 13, player.y + 10, 7, 8);
+
+    // Mouth
+    ctx.fillStyle = '#002233';
+    ctx.fillRect(player.x + 6, player.y + player.height - 12, player.width - 12, 5);
+    ctx.restore();
+
+    // Draw zombies
+    zombies.forEach(z => {
+      ctx.save();
+      ctx.fillStyle = z.color1;
+      ctx.shadowColor = '#004400cc';
+      ctx.shadowBlur = 10;
+      ctx.fillRect(z.x, z.y, z.width, z.height);
+      ctx.fillStyle = z.color2;
+      ctx.fillRect(z.x + 6, z.y + 6, z.width - 12, z.height - 12);
+      ctx.restore();
+    });
+
+    // Draw bullets
+    bullets.forEach(b => {
+      ctx.fillStyle = '#00ffffcc';
+      ctx.fillRect(b.x, b.y, b.width, b.height);
+    });
+
+    // Health bar
+    const barWidth = 160;
+    const barHeight = 18;
+    const barX = 20;
+    const barY = 20;
+
+    ctx.fillStyle = '#003344';
+    ctx.fillRect(barX, barY, barWidth, barHeight);
+    ctx.fillStyle = '#00ff99';
+    ctx.fillRect(barX, barY, (player.health / player.maxHealth) * barWidth, barHeight);
+    ctx.strokeStyle = '#00ffff';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(barX, barY, barWidth, barHeight);
+    ctx.font = '16px Share Tech Mono';
+    ctx.fillStyle = '#00ffff';
+    ctx.fillText(`Health: ${Math.floor(player.health)}/${player.maxHealth}`, barX + 8, barY + 14);
+
+    // Ammo bar
+    const ammoBarWidth = 120;
+    const ammoX = 20;
+    const ammoY = barY + barHeight + 12;
+    ctx.fillStyle = '#003344';
+    ctx.fillRect(ammoX, ammoY, ammoBarWidth, barHeight);
+    ctx.fillStyle = '#3399ff';
+    ctx.fillRect(ammoX, ammoY, (player.ammo / player.maxAmmo) * ammoBarWidth, barHeight);
+    ctx.strokeStyle = '#00ffff';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(ammoX, ammoY, ammoBarWidth, barHeight);
+    ctx.fillStyle = '#00ffff';
+    ctx.fillText(`Ammo: ${player.ammo}/${player.maxAmmo}`, ammoX + 8, ammoY + 14);
+
+    // Wave counter
+    ctx.font = '20px Share Tech Mono';
+    ctx.fillStyle = '#00ffff';
+    ctx.fillText(`Wave: ${wave}`, canvas.width - 140, 30);
+
+    // Pause message
+    if (paused && !gameOver) {
+      ctx.fillStyle = '#00ffffbb';
+      ctx.font = '48px Share Tech Mono';
+      ctx.textAlign = 'center';
+      ctx.fillText('PAUSED', canvas.width/2, canvas.height/2);
+      ctx.textAlign = 'start';
+    }
+  }
+
+  // Main game loop
+  function gameLoop() {
+    update();
+    draw();
+    if (!gameOver) requestAnimationFrame(gameLoop);
+  }
+
+  // Event listeners
+  window.addEventListener('keydown', e => {
+    keys[e.key.toLowerCase()] = true;
+
+    if (e.key.toLowerCase() === 'r' && !player.reloading && player.ammo < player.maxAmmo && !paused) {
+      player.reloading = true;
+      player.reloadCounter = 0;
+    }
+
+    if (e.key.toLowerCase() === 'p') {
+      if (!gameOver) paused = !paused;
+      waveMessage.style.display = paused ? 'block' : 'none';
+      waveMessage.textContent = paused ? 'PAUSED' : '';
+    }
+
+    if (e.key.toLowerCase() === 'n' && buildingEscape && !finalWaveReached && !paused) {
+      startWave();
+    }
+  });
+
+  window.addEventListener('keyup', e => {
+    keys[e.key.toLowerCase()] = false;
+  });
+
+  canvas.addEventListener('mousedown', e => {
+    if (!paused && !gameOver && gameStarted && !player.reloading && player.ammo > 0) {
+      mouseDown = true;
+      shoot();
+    }
+  });
+
+  window.addEventListener('mouseup', e => {
+    mouseDown = false;
+  });
+
+  canvas.addEventListener('mousemove', e => {
+    const rect = canvas.getBoundingClientRect();
+    mousePos.x = e.clientX - rect.left;
+    mousePos.y = e.clientY - rect.top;
+  });
+
+  startButton.addEventListener('click', () => {
+    startGame();
+  });
+})();
+</script>
+
+</body>
+</html>
