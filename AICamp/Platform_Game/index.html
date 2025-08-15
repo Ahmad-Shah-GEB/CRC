@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Infinite Left-Moving Platformer with Stick Figure</title>
+<style>
+  body { margin: 0; background: #87ceeb; overflow: hidden; text-align: center; }
+  canvas { display: block; margin: auto; background: #222; }
+  #playAgainBtn {
+    display: none;
+    padding: 10px 20px;
+    font-size: 18px;
+    background-color: #28a745;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    margin-top: 10px;
+  }
+  #playAgainBtn:hover { background-color: #218838; }
+</style>
+</head>
+<body>
+<canvas id="gameCanvas" width="800" height="500"></canvas>
+<button id="playAgainBtn">Play Again</button>
+
+<script>
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+const playAgainBtn = document.getElementById("playAgainBtn");
+
+let player, gravity, jumpPower, platforms, spikes, score, gameOver;
+let platformSpeed = 3;
+let spawnGap = 200;
+let platformMinY = 200;
+let platformMaxY = 350;
+let maxHeightChange = 60;
+let jumpCount = 0;
+let maxJumps = 2; // double jump
+
+// Load stick figure images
+const runImage = new Image();
+runImage.src = "stick.png"; // running image
+const jumpImage = new Image();
+jumpImage.src = "stick_2.png"; // jumping image
+
+function init() {
+  gravity = 0.5;
+  jumpPower = -10;
+  platforms = [];
+  spikes = { height: 20 };
+  score = 0;
+  gameOver = false;
+  playAgainBtn.style.display = "none";
+  jumpCount = 0;
+
+  // Generate starting platforms
+  let lastY = 300;
+  for (let i = 0; i < 6; i++) {
+    let newY = lastY + (Math.random() * maxHeightChange * 2 - maxHeightChange);
+    newY = Math.max(platformMinY, Math.min(platformMaxY, newY));
+    platforms.push({
+      x: i * 150,
+      y: newY,
+      width: 100,
+      height: 10,
+      coin: {
+        offsetX: 40,
+        offsetY: -25,
+        size: 10,
+        collected: false
+      }
+    });
+    lastY = newY;
+  }
+
+  // Spawn player on first platform
+  let firstPlat = platforms[0];
+  player = {
+    x: firstPlat.x + firstPlat.width / 2 - 15,
+    y: firstPlat.y - 40,
+    width: 40,
+    height: 40,
+    dy: 0,
+    onGround: true
+  };
+}
+
+let keys = {};
+document.addEventListener("keydown", e => {
+  keys[e.code] = true;
+  if ((e.code === "Space" || e.code === "ArrowUp") && jumpCount < maxJumps) {
+    player.dy = jumpPower;
+    player.onGround = false;
+    jumpCount++;
+  }
+});
+document.addEventListener("keyup", e => keys[e.code] = false);
+
+function update() {
+  if (gameOver) return;
+
+  // Move player horizontally
+  if (keys["ArrowLeft"]) player.x -= 5;
+  if (keys["ArrowRight"]) player.x += 5;
+
+  // Gravity
+  player.dy += gravity;
+  player.y += player.dy;
+
+  // Move platforms left
+  for (let p of platforms) p.x -= platformSpeed;
+
+  // Spawn new platform
+  if (platforms[platforms.length - 1].x < canvas.width - spawnGap) {
+    let lastY = platforms[platforms.length - 1].y;
+    let newY = lastY + (Math.random() * maxHeightChange * 2 - maxHeightChange);
+    newY = Math.max(platformMinY, Math.min(platformMaxY, newY));
+    platforms.push({
+      x: canvas.width,
+      y: newY,
+      width: 100,
+      height: 10,
+      coin: {
+        offsetX: 40,
+        offsetY: -25,
+        size: 10,
+        collected: false
+      }
+    });
+  }
+
+  // Remove off-screen platforms
+  if (platforms[0].x + platforms[0].width < 0) platforms.shift();
+
+  // Collision detection with platforms
+  player.onGround = false;
+  for (let p of platforms) {
+    if (player.x < p.x + p.width && player.x + player.width > p.x &&
+        player.y + player.height > p.y && player.y + player.height < p.y + p.height + player.dy) {
+      player.y = p.y - player.height;
+      player.dy = 0;
+      player.onGround = true;
+      jumpCount = 0; // reset jump counter on landing
+    }
+
+    // Coin collection
+    let c = p.coin;
+    let coinX = p.x + c.offsetX;
+    let coinY = p.y + c.offsetY;
+    if (!c.collected &&
+        player.x < coinX + c.size && player.x + player.width > coinX &&
+        player.y < coinY + c.size && player.y + player.height > coinY) {
+      c.collected = true;
+      score++;
+    }
+  }
+
+  // Spike collision (fall off)
+  if (player.y + player.height > canvas.height - spikes.height) {
+    gameOver = true;
+    playAgainBtn.style.display = "inline-block";
+  }
+}
+
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Draw platforms and coins
+  ctx.fillStyle = "#654321";
+  for (let p of platforms) {
+    ctx.fillRect(p.x, p.y, p.width, p.height);
+
+    let c = p.coin;
+    if (!c.collected) {
+      ctx.fillStyle = "gold";
+      ctx.beginPath();
+      ctx.arc(p.x + c.offsetX + c.size/2, p.y + c.offsetY + c.size/2, c.size/2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#654321";
+    }
+  }
+
+  // Draw spikes
+  ctx.fillStyle = "red";
+  let spikeWidth = 20;
+  for (let i = 0; i < canvas.width / spikeWidth; i++) {
+    ctx.beginPath();
+    ctx.moveTo(i * spikeWidth, canvas.height);
+    ctx.lineTo(i * spikeWidth + spikeWidth / 2, canvas.height - spikes.height);
+    ctx.lineTo((i + 1) * spikeWidth, canvas.height);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  // Draw player image (running or jumping)
+  let img = player.onGround ? runImage : jumpImage;
+  ctx.drawImage(img, player.x, player.y, player.width, player.height);
+
+  // Draw score
+  ctx.fillStyle = "white";
+  ctx.font = "20px Arial";
+  ctx.fillText("Score: " + score, 10, 20);
+
+  // Game Over text
+  if (gameOver) {
+    ctx.fillStyle = "white";
+    ctx.font = "40px Arial";
+    ctx.fillText("Game Over!", canvas.width / 2 - 100, canvas.height / 2);
+  }
+}
+
+function gameLoop() {
+  update();
+  draw();
+  requestAnimationFrame(gameLoop);
+}
+
+playAgainBtn.addEventListener("click", () => {
+  init();
+});
+
+init();
+gameLoop();
+</script>
+</body>
+</html>
