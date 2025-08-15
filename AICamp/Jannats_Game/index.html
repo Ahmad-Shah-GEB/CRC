@@ -1,0 +1,352 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Space Game — Collect Stars, Avoid Aliens</title>
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+      background: radial-gradient(#001022, #000814);
+      color: #fff;
+      font-family: Arial, sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+    }
+    #gameContainer { text-align: center; }
+    canvas {
+      canvas {
+    background: url('spacebg.png') no-repeat center center;
+    background-size: cover;
+    border: 2px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    display: block;
+  }
+
+    }
+    #ui {
+      margin-top: 10px;
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      justify-content: center;
+    }
+    #score, #health {
+      font-size: 18px;
+      letter-spacing: 1px;
+    }
+    #restartBtn {
+      padding: 8px 12px;
+      font-size: 16px;
+      border-radius: 6px;
+      border: none;
+      background: #ff4d6d;
+      color: white;
+      cursor: pointer;
+      display: none;
+    }
+    #instructions {
+      font-size: 13px;
+      color: #bcd;
+      margin-top: 8px;
+      opacity: 0.9;
+    }
+  </style>
+</head>
+<body>
+  <div id="gameContainer">
+    <canvas id="game" width="640" height="480"></canvas>
+    <div id="ui">
+      <div id="score">Score: 0</div>
+      <div id="health">Health: 3</div>
+      <button id="restartBtn">Restart</button>
+    </div>
+    <div id="instructions">Use arrow keys to move. Collect stars, avoid aliens! Glowing, spinning, sparkling green stars heal you.</div>
+  </div>
+
+  <script>
+    const ASSETS = {
+      spaceship: "spaceship.png",
+      aliens: ["alien.png"],
+      stars: ["star1.png", "star2.png", "star3.png"],
+      healStar: "healStar.png"
+    };
+
+    function loadImage(filename) {
+      const img = new Image();
+      img.src = filename;
+      return img;
+    }
+
+    const spaceshipImg = loadImage(ASSETS.spaceship);
+    const alienImgs = ASSETS.aliens.map(loadImage);
+    const starImgs = ASSETS.stars.map(loadImage);
+    const healStarImg = loadImage(ASSETS.healStar);
+
+    const canvas = document.getElementById("game");
+    const ctx = canvas.getContext("2d");
+    const scoreEl = document.getElementById("score");
+    const healthEl = document.getElementById("health");
+    const restartBtn = document.getElementById("restartBtn");
+
+    let keys = {};
+    let score = 0;
+    let health = 3;
+    let gameOver = false;
+    let alienSpeedBoost = 0;
+    const maxHealth = 3;
+    const maxAliens = 10;
+    let glowPulse = 0;
+    let spinAngle = 0;
+    let shipHitTimer = 0;
+
+    let spaceship = { x: 300, y: 400, w: 50, h: 50, speed: 4 };
+    let stars = [];
+    let aliens = [];
+    let sparkles = [];
+
+    function spawnManyStars() {
+      stars = [];
+      starImgs.forEach(img => {
+        for (let i = 0; i < 50; i++) {
+          const isHeal = Math.random() < 0.1;
+          stars.push({
+            x: Math.random() * (canvas.width - 30),
+            y: Math.random() * (canvas.height - 30),
+            w: 30,
+            h: 30,
+            img: isHeal ? healStarImg : img,
+            heal: isHeal
+          });
+        }
+      });
+    }
+
+    function spawnStar() {
+      const isHeal = Math.random() < 0.1;
+      stars.push({
+        x: Math.random() * (canvas.width - 30),
+        y: Math.random() * (canvas.height - 30),
+        w: 30,
+        h: 30,
+        img: isHeal ? healStarImg : starImgs[Math.floor(Math.random() * starImgs.length)],
+        heal: isHeal
+      });
+    }
+
+    function spawnAlien() {
+      aliens.push({
+        x: Math.random() * (canvas.width - 40),
+        y: Math.random() * (canvas.height - 40),
+        w: 40,
+        h: 40,
+        speedX: (Math.random() - 0.5) * 2,
+        speedY: (Math.random() - 0.5) * 2,
+        img: alienImgs[Math.floor(Math.random() * alienImgs.length)],
+        hitTimer: 0
+      });
+    }
+
+    function resetGame() {
+      score = 0;
+      health = 3;
+      alienSpeedBoost = 0;
+      gameOver = false;
+      aliens = [];
+      sparkles = [];
+      spaceship.x = 300;
+      spaceship.y = 400;
+      shipHitTimer = 0;
+      spawnManyStars();
+      for (let i = 0; i < 3; i++) spawnAlien();
+      restartBtn.style.display = "none";
+      loop();
+
+      setInterval(() => {
+        if (!gameOver) {
+          if (aliens.length < maxAliens) {
+            spawnAlien();
+          }
+          alienSpeedBoost = Math.min(alienSpeedBoost + 0.1, 1.5);
+        }
+      }, 5000);
+    }
+
+    function createSparkle(x, y) {
+      sparkles.push({
+        x: x + (Math.random() - 0.5) * 20,
+        y: y + (Math.random() - 0.5) * 20,
+        size: Math.random() * 3 + 2,
+        alpha: 1,
+        speedY: Math.random() * -0.5 - 0.2
+      });
+    }
+
+    function updateSparkles() {
+      sparkles.forEach(s => {
+        s.y += s.speedY;
+        s.alpha -= 0.02;
+      });
+      sparkles = sparkles.filter(s => s.alpha > 0);
+    }
+
+    function drawSparkles() {
+      sparkles.forEach(s => {
+        ctx.globalAlpha = s.alpha;
+        ctx.fillStyle = "gold";
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      });
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      if (shipHitTimer > 0) {
+        ctx.save();
+        ctx.globalAlpha = 0.6;
+        ctx.fillStyle = "white";
+        ctx.fillRect(spaceship.x, spaceship.y, spaceship.w, spaceship.h);
+        ctx.globalAlpha = 1;
+        ctx.restore();
+      }
+      ctx.drawImage(spaceshipImg, spaceship.x, spaceship.y, spaceship.w, spaceship.h);
+
+      glowPulse = (Math.sin(Date.now() / 300) + 1) / 2;
+      spinAngle += 0.02;
+
+      stars.forEach(star => {
+        if (star.heal) {
+          createSparkle(star.x + star.w / 2, star.y + star.h / 2);
+          ctx.save();
+          ctx.shadowColor = "lime";
+          ctx.shadowBlur = 15 + glowPulse * 15;
+          ctx.translate(star.x + star.w / 2, star.y + star.h / 2);
+          ctx.rotate(spinAngle);
+          ctx.drawImage(star.img, -star.w / 2, -star.h / 2, star.w, star.h);
+          ctx.restore();
+        } else {
+          ctx.drawImage(star.img, star.x, star.y, star.w, star.h);
+        }
+      });
+
+      drawSparkles();
+
+      aliens.forEach(alien => {
+        if (alien.hitTimer > 0) {
+          ctx.save();
+          ctx.globalAlpha = 0.6;
+          ctx.fillStyle = "red";
+          ctx.fillRect(alien.x, alien.y, alien.w, alien.h);
+          ctx.globalAlpha = 1;
+          ctx.restore();
+        }
+        ctx.drawImage(alien.img, alien.x, alien.y, alien.w, alien.h);
+      });
+    }
+
+    function update() {
+      if (keys["ArrowUp"]) spaceship.y -= spaceship.speed;
+      if (keys["ArrowDown"]) spaceship.y += spaceship.speed;
+      if (keys["ArrowLeft"]) spaceship.x -= spaceship.speed;
+      if (keys["ArrowRight"]) spaceship.x += spaceship.speed;
+
+      spaceship.x = Math.max(0, Math.min(canvas.width - spaceship.w, spaceship.x));
+      spaceship.y = Math.max(0, Math.min(canvas.height - spaceship.h, spaceship.y));
+
+      if (shipHitTimer > 0) shipHitTimer--;
+
+      updateSparkles();
+
+      aliens.forEach(alien => {
+        alien.x += alien.speedX * (1 + alienSpeedBoost / 3);
+        alien.y += alien.speedY * (1 + alienSpeedBoost / 3);
+        if (alien.x <= 0 || alien.x >= canvas.width - alien.w) alien.speedX *= -1;
+        if (alien.y <= 0 || alien.y >= canvas.height - alien.h) alien.speedY *= -1;
+
+        if (alien.hitTimer > 0) alien.hitTimer--;
+      });
+
+      stars = stars.filter(star => {
+        if (spaceship.x < star.x + star.w &&
+            spaceship.x + spaceship.w > star.x &&
+            spaceship.y < star.y + star.h &&
+            spaceship.y + spaceship.h > star.y) {
+
+          if (star.heal) {
+            if (health < maxHealth) {
+              health++;
+              healthEl.textContent = "Health: " + health;
+            }
+          } else {
+            score++;
+            scoreEl.textContent = "Score: " + score;
+          }
+
+          spawnStar();
+          return false;
+        }
+        return true;
+      });
+
+      aliens.forEach(alien => {
+        if (spaceship.x < alien.x + alien.w &&
+            spaceship.x + spaceship.w > alien.x &&
+            spaceship.y < alien.y + alien.h &&
+            spaceship.y + spaceship.h > alien.y) {
+          health--;
+          healthEl.textContent = "Health: " + health;
+          alien.hitTimer = 10;
+          shipHitTimer = 10;
+          spaceship.x = 300;
+          spaceship.y = 400;
+          if (health <= 0) gameOver = true;
+        }
+      });
+    }
+
+    function loop() {
+      if (gameOver) {
+        ctx.fillStyle = "white";
+        ctx.font = "40px Arial";
+        ctx.fillText("GAME OVER", canvas.width / 2 - 100, canvas.height / 2);
+        restartBtn.style.display = "inline-block";
+        return;
+      }
+      draw();
+      update();
+      requestAnimationFrame(loop);
+    }
+
+    document.addEventListener("keydown", e => keys[e.key] = true);
+    document.addEventListener("keyup", e => keys[e.key] = false);
+    restartBtn.addEventListener("click", resetGame);
+
+    // ✅ Only start game after ALL images are loaded
+    let allImages = [
+      spaceshipImg,
+      ...alienImgs,
+      ...starImgs,
+      healStarImg
+    ];
+    let loadedCount = 0;
+
+    allImages.forEach(img => {
+      img.onload = () => {
+        loadedCount++;
+        console.log(`Loaded ${loadedCount}/${allImages.length}:`, img.src);
+        if (loadedCount === allImages.length) {
+          resetGame();
+        }
+      };
+      img.onerror = () => {
+        console.error("Failed to load image:", img.src);
+      };
+    });
+  </script>
+</body>
+</html>
