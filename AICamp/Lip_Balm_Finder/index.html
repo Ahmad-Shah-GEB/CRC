@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lip Product Recommendation</title>
+    <style>
+    body {
+    margin: 0;
+    padding: 0;
+    background-color: #e6d8f5; /* pastel purple */
+    font-family:"Lucida Handwriting", cursive;
+    overflow: hidden;
+}
+
+/* Heart styling */
+.heart {
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    background-color: pink;
+    transform: rotate(45deg);
+    animation: floatUp 8s linear infinite;
+    opacity: 0.7;
+}
+
+.heart::before,
+.heart::after {
+    content: "";
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    background-color: pink;
+    border-radius: 50%;
+}
+
+.heart::before {
+    top: -10px;
+    left: 0;
+}
+
+.heart::after {
+    left: -10px;
+    top: 0;
+}
+
+@keyframes floatUp {
+    0% {
+        transform: translateY(100vh) rotate(45deg);
+        opacity: 0.7;
+    }
+    100% {
+        transform: translateY(-10vh) rotate(45deg);
+        opacity: 0;
+    }
+}
+
+        body {
+            font-family:"Lucida Handwriting", cursive;
+            background-color: #E6E6FA; /* pastel purple */
+            text-align: center;
+            padding: 30px;
+        }
+        .hidden {
+            display: none;
+        }
+        .start-screen, .quiz-screen {
+            max-width: 400px;
+            margin: auto;
+            padding: 20px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        button {
+            background-color: #d8bfd8;
+            border: none;
+            padding: 10px 20px;
+            font-size: 16px;
+            margin-top: 15px;
+            cursor: pointer;
+            border-radius: 8px;
+        }
+        button:hover {
+            background-color: #cda5cd;
+        }
+        img {
+            max-width: 200px;
+            margin-top: 10px;
+            border-radius: 8px;
+        }
+
+    </style>
+
+</head>
+<body>
+  <body>
+    <!-- Floating hearts -->
+    <div class="heart" style="left: 10%; animation-delay: 0s;"></div>
+    <div class="heart" style="left: 25%; animation-delay: 2s;"></div>
+    <div class="heart" style="left: 40%; animation-delay: 4s;"></div>
+    <div class="heart" style="left: 60%; animation-delay: 1s;"></div>
+    <div class="heart" style="left: 80%; animation-delay: 3s;"></div>
+    <div class="heart" style="left: 90%; animation-delay: 5s;"></div>
+
+
+    <!-- Start screen -->
+    <div class="start-screen" id="startScreen" style="text-align:center; font-family:'Lucida Handwriting', cursive;">
+    <h1>Welcome to the Lip Balm Finder!</h1>
+    <p style="font-size:18px; color:#ff69b4; max-width:400px; margin:10px auto;">
+      Follow these steps to find your perfect lip product:
+      <br><br>
+      1. Set your budget using the slider.<br>
+      2. Choose your favorite color.<br>
+      3. Pick your tube type.<br><br>
+      Then click <strong>Get Recommendation</strong>!
+    </p>
+    <button onclick="startQuiz()" style="font-size:20px; padding:10px 20px; margin-top:15px;">Start</button>
+  </div>
+
+
+    <!-- Quiz screen -->
+    <div class="quiz-screen hidden" id="quizScreen">
+      <h2>Lip Product Quiz</h2>
+
+      <label for="budget">Budget: $<span id="budget-value">8</span></label>
+      <input type="range" id="budget" min="8" max="50" value="8" step="1"><br><br>
+
+      <label>Color:</label>
+      <select id="color">
+        <option value="red">Red</option>
+        <option value="orange">Orange</option>
+        <option value="pink">Pink</option>
+        <option value="brown">Brown</option>
+        <option value="burgundy">Burgundy</option>
+        <option value="clear">Clear</option>
+        <option value="purple">Purple</option>
+      </select><br><br>
+
+      <label>Tube Type:</label>
+      <select id="tube">
+        <option value="Tube">Tube</option>
+        <option value="Squeeze">Squeeze</option>
+      </select><br><br>
+
+      <button onclick="getRecommendation()">Get Recommendation</button>
+      <div id="result" style="margin-top:20px;"></div>
+
+    </div>
+
+    <script>
+    const budgetSlider = document.getElementById('budget');
+const budgetValue = document.getElementById('budget-value');
+
+budgetSlider.addEventListener('input', () => {
+    budgetValue.textContent = budgetSlider.value;
+});
+
+        function startQuiz() {
+            document.getElementById('startScreen').classList.add('hidden');
+            document.getElementById('quizScreen').classList.remove('hidden');
+        }
+
+        function getRecommendation() {
+            let budget = parseFloat(document.getElementById("budget").value);
+            let color = document.getElementById("color").value;
+            let tube = document.getElementById("tube").value;
+
+            let resultText = "";
+            let imageLink = "";
+
+            // ----------------
+            // TUBE RECOMMENDATIONS
+            // ----------------
+            if (budget <= 29 && color == "red" && tube == "Tube") {
+                resultText = "You should get the Elf Lip oil in the shade red delicious!";
+                imageLink = "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dwaa9de4b1/2023/GlowReviverLipOil/82008_OpenA_R.jpg?sfrm=png&sw=780&q=90&strip=false";
+                  productLink = "https://www.elfcosmetics.com/glow-reviver-lip-oil/82008.html";
+            }
+            if (budget <= 29 && color == "orange" && tube == "Tube") {
+                resultText = "You should get the Elf Lip oil in the shade coral fixation!";
+                imageLink = "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dw20fec5fc/2023/GlowReviverLipOil/82007_OpenA_V5_R.jpg?sfrm=png&sw=780&q=90&strip=false";
+                  productLink = "https://www.elfcosmetics.com/glow-reviver-lip-oil/82007.html";
+            }
+            if (budget <= 29 && color == "pink" && tube == "Tube") {
+                resultText = "You should get the Elf Lip oil in the shade pink quartz!";
+                imageLink = "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dw141e8912/2023/GlowReviverLipOil/82004_OpenA_V7_R.jpg?sfrm=png&sw=780&q=90&strip=false";
+                  productLink = "https://www.elfcosmetics.com/glow-reviver-lip-oil/82004.html";
+            }
+            if (budget <= 29 && color == "brown" && tube == "Tube") {
+                resultText = "You should get the Elf Lip oil in the shade Hot As Fudge!";
+                imageLink = "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dwca0e0960/2024/GlowReviverLipOilEXT/82014_OPENA_v5_R.jpg?sfrm=png&sw=780&q=90&strip=false";
+                  productLink = "https://www.elfcosmetics.com/glow-reviver-lip-oil/82014.html";
+            }
+            if (budget <= 29 && color == "burgundy" && tube == "Tube") {
+                resultText = "You should get the Elf Lip oil in the shade jam session!";
+                imageLink = "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dw6cd49bb9/2023/GlowReviverLipOil/82009_OpenA_R.jpg?sfrm=png&sw=780&q=90&strip=false";
+                  productLink = "https://www.elfcosmetics.com/glow-reviver-lip-oil/82009.html";
+            }
+            if (budget <= 29 && color == "clear" && tube == "Tube") {
+                resultText = "You should get the Elf Lip oil in the shade crystal clear!";
+                imageLink = "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dw27a94017/2023/GlowReviverLipOil/82010_OpenA_R.jpg?sfrm=png&sw=780&q=90&strip=false";
+                  productLink = "https://www.elfcosmetics.com/glow-reviver-lip-oil/82010.html";
+            }
+            if (budget <= 29 && color == "purple" && tube == "Tube") {
+                resultText = "Sorry, there are no recommendations at this time :(";
+            }
+
+            if (budget > 29 && budget <= 39 && color == "red" && tube == "Tube") {
+                resultText = "You should get the Clarins Lip Oil in the shade cherry or strawberry!";
+                imageLink = "https://m.media-amazon.com/images/I/61Rl0mIqPbL._SX522_.jpg";
+                  productLink = "https://www.clarinsusa.com/en/lip-comfort-oil-hydrating-and-plumping-lip-oil/80084589.html";
+            }
+            if (budget > 29 && budget <= 39 && color == "orange" && tube == "Tube") {
+                resultText = "You should get the Clarins Lip Oil in the shade honey or apricot!";
+               imageLink = "https://m.media-amazon.com/images/I/61vwZrmN98L._SX522_.jpg";
+                 productLink = "https://www.clarinsusa.com/en/lip-comfort-oil-hydrating-and-plumping-lip-oil/80084589.html";
+            }
+            if (budget > 29 && budget <= 39 && color == "purple" && tube == "Tube") {
+                resultText = "You should get the Clarins Lip Oil in the shade plum!";
+                  imageLink = "https://m.media-amazon.com/images/I/61osK-hX08L._SX522_.jpg";
+                    productLink = "https://www.clarinsusa.com/en/lip-comfort-oil-hydrating-and-plumping-lip-oil/80084589.html";
+            }
+            if (budget > 29 && budget <= 39 && color == "pink" && tube == "Tube") {
+                resultText = "You should get the Clarins Lip Oil in the shade raspberry, pitaya, or fuchsia!";
+                  imageLink = "https://m.media-amazon.com/images/I/61LqweVIjbL._SX522_.jpg";
+                    productLink = "https://www.clarinsusa.com/en/lip-comfort-oil-hydrating-and-plumping-lip-oil/80084589.html";
+            }
+            if (budget > 29 && budget <= 39 && color == "brown" && tube == "Tube") {
+                resultText = "You should get the Clarins Lip Oil in the shade chocolate!";
+                  imageLink = "https://m.media-amazon.com/images/I/61AGYMjqm-L._SX522_.jpg";
+                    productLink = "https://www.clarinsusa.com/en/lip-comfort-oil-hydrating-and-plumping-lip-oil/80084589.html";
+            }
+            if (budget > 29 && budget <= 39 && color == "burgundy" && tube == "Tube") {
+                resultText = "You should get the Clarins Lip Oil in the shade Fig!";
+                  imageLink = "https://www.clarinsusa.com/dw/image/v2/AAFS_PRD/on/demandware.static/-/Sites-clarins-master-products/default/dwab62996c/original/80100469_original_original_1.jpg";
+                    productLink = "https://www.clarinsusa.com/en/lip-comfort-oil-hydrating-and-plumping-lip-oil/80084589.html";
+            }
+            if (budget > 29 && budget <= 39 && color == "clear" && tube == "Tube") {
+                resultText = "Sorry, there are no recommendations at this time :(";
+            }
+
+            if (budget > 40 && color == "red" && tube == "Tube") {
+                resultText = "You should get the Dior Addict Lip Glow Oil in the shade cherry or rosewood!";
+                  imageLink = "https://www.dior.com/dw/image/v2/BGXS_PRD/on/demandware.static/-/Sites-master_dior/default/dwaa3240d9/Y0124000/Y0124000_C012400012_E01_ZHC.jpg?sw=1800&sh=1200";
+                    productLink = "https://www.dior.com/en_us/beauty/products/dior-addict-lip-glow-oil-Y0124000.html";
+            }
+            if (budget > 40 && color == "orange" && tube == "Tube") {
+                resultText = "You should get the Dior Addict Lip Glow Oil in the shade Coral!";
+                  imageLink = "https://www.dior.com/dw/image/v2/BGXS_PRD/on/demandware.static/-/Sites-master_dior/default/dwe025d71e/Y0124000/Y0124000_C012400004_E01_ZHC.jpg?sw=1800&sh=1200";
+                    productLink = "https://www.dior.com/en_us/beauty/products/dior-addict-lip-glow-oil-Y0124000.html";
+            }
+            if (budget > 40 && color == "purple" && tube == "Tube") {
+                resultText = "You should get the Dior Addict Lip Glow Oil in the shade berry!";
+                  imageLink = "https://www.dior.com/dw/image/v2/BGXS_PRD/on/demandware.static/-/Sites-master_dior/default/dwf8114884/Y0124000/Y0124000_C012400006_E01_ZHC.jpg?sw=1800&sh=1200";
+                    productLink = "https://www.dior.com/en_us/beauty/products/dior-addict-lip-glow-oil-Y0124000.html";
+            }
+            if (budget > 40 && color == "pink" && tube == "Tube") {
+                resultText = "You should get the Dior Addict Lip Glow Oil in the shade pink or raspberry!";
+                  imageLink = "https://www.dior.com/dw/image/v2/BGXS_PRD/on/demandware.static/-/Sites-master_dior/default/dw068f0151/Y0124000/Y0124000_C012400007_E01_ZHC.jpg?sw=1800&sh=1200";
+                    productLink = "https://www.dior.com/en_us/beauty/products/dior-addict-lip-glow-oil-Y0124000.html";
+            }
+            if (budget > 40 && color == "brown" && tube == "Tube") {
+                resultText = "You should get the Dior Addict Lip Glow Oil in the shade bronzed glow or mahogany!";
+                  imageLink = "https://www.dior.com/dw/image/v2/BGXS_PRD/on/demandware.static/-/Sites-master_dior/default/dw9c77e647/Y0124000/Y0124000_C012400020_E01_ZHC.jpg?sw=1800&sh=1200";
+                    productLink = "https://www.dior.com/en_us/beauty/products/dior-addict-lip-glow-oil-Y0124000.html";
+            }
+            if (budget > 40 && color == "clear" && tube == "Tube") {
+                resultText = "You should get the Dior Addict Lip Glow Oil in the shade universal clear!";
+                  imageLink = "https://www.dior.com/dw/image/v2/BGXS_PRD/on/demandware.static/-/Sites-master_dior/default/dwd040056d/Y0124000/Y0124000_C012400100_E01_ZHC.jpg?sw=1800&sh=1200";
+                    productLink = "https://www.dior.com/en_us/beauty/products/dior-addict-lip-glow-oil-Y0124000.html";
+            }
+            if (budget > 40 && color == "burgundy" && tube == "Tube") {
+                resultText = "Sorry, there are no recommendations at this time :(";
+            }
+
+            // ----------------
+            // SQUEEZE RECOMMENDATIONS
+            // ----------------
+            if (budget >= 24 && color == "red" && tube == "Squeeze") {
+                resultText = "You should get the Summer Fridays Lip Butter Balm in the shade cherry!";
+                imageLink = "https://summerfridays.com/cdn/shop/files/Square-Lip-Butter-Balm-Cherry-Main.jpg?v=1716507860&width=2000";
+                  productLink = "https://summerfridays.com/products/lip-butter-balm-cherry";
+            }
+            if (budget >= 24 && color == "orange" && tube == "Squeeze") {
+                resultText = "You should get the Summer Fridays Lip Butter Balm in the shade poppy!";
+            imageLink = "https://summerfridays.com/cdn/shop/files/Square-Lip-Butter-Balm-Poppy-Main.jpg?v=1716507860&width=2000";
+              productLink = "https://summerfridays.com/products/lip-butter-balm-poppy";
+            }
+            if (budget >= 24 && color == "pink" && tube == "Squeeze") {
+                resultText = "You should get the Summer Fridays Lip Butter Balm in the shade pink sugar!";
+            imageLink = "https://summerfridays.com/cdn/shop/files/Square-Lip-Butter-Balm-Pink-Sugar-Main.jpg?v=1716507860&width=2000";
+              productLink = "https://summerfridays.com/products/lip-butter-balm-pink-sugar";
+            }
+            if (budget >= 24 && color == "clear" && tube == "Squeeze") {
+                resultText = "You should get the Summer Fridays Lip Butter Balm in the shade vanilla or vanilla beige!";
+            imageLink = "https://summerfridays.com/cdn/shop/files/Square-Lip-Butter-Balm-Vanilla-Main.jpg?v=1716507861&width=1920";
+              productLink = "https://summerfridays.com/products/lip-butter-balm";
+            }
+            if (budget >= 24 && color == "brown" && tube == "Squeeze") {
+                resultText = "You should get the Summer Fridays Lip Butter Balm in the shade brown sugar or iced coffee!";
+            imageLink = "https://summerfridays.com/cdn/shop/files/Square-Lip-Butter-Balm-Brown-Sugar-Main_d8c1235b-f34a-45a7-ad1b-aa470d5b715e.jpg?v=1730413245&width=2000";
+              productLink = "https://summerfridays.com/products/lip-butter-balm-brown-sugar";
+            }
+            if (budget >= 24 && color == "burgundy" && tube == "Squeeze") {
+                resultText = "Sorry, there are no recommendations at this time :(";
+            }
+            if (budget >= 24 && color == "purple" && tube == "Squeeze") {
+                resultText = "Sorry, there are no recommendations at this time :(";
+            }
+
+            // OLE HENRIKSEN $22 < budget < $24
+            // Ole Henriksen for budget >22 and <24
+if (budget > 22 && budget < 24 && tube == "Squeeze") {
+    if (color == "burgundy" || color == "brown") {
+        resultText = "You should get the Ole Henriksen Lip Balm in the shade Cocoa Crème!";
+          imageLink = "https://olehenriksen.com/cdn/shop/files/OH768550_ABBSealIntegration_SILO_CocoaCreme_1600x.jpg?v=1751990847";
+            productLink = "https://olehenriksen.com/products/pout-preserve-peptide-lip-treatment?variant=43012880892076";
+    } else if (color == "orange") {
+        resultText = "You should get the Ole Henriksen Lip Balm in the shade Peach Glaze!";
+          imageLink = "https://olehenriksen.com/cdn/shop/files/OH_POUT_PRESERVE_SILO_PEACH_WITH_SMEAR_1500x1500_72DPI_e5b0b3b2-3e69-4000-8081-8ad3b3a17c3b_1600x.jpg?v=1751901695";
+            productLink = "https://olehenriksen.com/products/pout-preserve-peptide-lip-treatment?variant=44551907377324";
+    } else if (color == "pink") {
+        resultText = "You should get the Ole Henriksen Lip Balm in the shade Strawberry Sorbet!";
+            imageLink = "https://olehenriksen.com/cdn/shop/files/OH768550_ABBSealIntegration_SILO_StrawberrySorbet_1600x.jpg?v=1751990847";
+              productLink = "https://olehenriksen.com/products/pout-preserve-peptide-lip-treatment?variant=43012880859308";
+    } else if (color == "clear") {
+        resultText = "You should get the Ole Henriksen Lip Balm in the shade Crème Brûlée!";
+            imageLink = "https://olehenriksen.com/cdn/shop/files/OH768550_ABBSealIntegration_SILO_CremeBrulee_1600x.jpg?v=1751990847";
+              productLink = "https://olehenriksen.com/products/pout-preserve-peptide-lip-treatment?variant=43686312444076";
+        } else if (color == "purple") {
+                resultText = "You should get the Ole Henriksen Lip Balm in the shade Lingonberry Jam Glimmer!";
+                    imageLink = "https://olehenriksen.com/cdn/shop/files/240813_OH_Pout_Glimmers_Lingonberry_WITHSMEAR_Silo_RGB_1500x1500_72DPI_1600x.jpg?v=1741213914";
+                      productLink = "https://olehenriksen.com/products/glimmer-pout-preserve-peptide-lip-treatment?variant=43877801820332";
+    } else {
+        resultText = "Sorry, there are no recommendations at this time :(";
+    }
+}
+// e.l.f. Glow Reviver Melting Lip Balm for budget >9 and <22
+if (budget > 9 && budget < 22 && tube == "Squeeze") {
+    if (color == "red") {
+        resultText = "You should get the e.l.f. Glow Reviver Lip Balm in the shade Wild Cherry!";
+        imageLink = "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dw47d4d94a/2025/GlowReviverMeltingLipBalm/82489_OpenA_V8_R.jpg?sfrm=png&sw=780&q=90&strip=false";
+          productLink = "https://www.elfcosmetics.com/glow-reviver-melting-lip-balm/82489.html";
+    } else if (color == "orange") {
+        resultText = "Sorry, there are no recommendations at this time :(";
+        imageLink = "";
+    } else if (color == "pink") {
+        resultText = "You should get the e.l.f. Glow Reviver Lip Balm in the shade Strawberry Shortcake!";
+        imageLink = "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dwfc68fdd9/2025/GlowReviverMeltingLipBalm/82487_OpenA_V8_R.jpg?sfrm=png&sw=780&q=90&strip=false";
+          productLink = "https://www.elfcosmetics.com/glow-reviver-melting-lip-balm/82487.html";
+    } else if (color == "brown") {
+        resultText = "You should get the e.l.f. Glow Reviver Lip Balm in the shade Java Chip!";
+        imageLink = "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dwa0d31a6b/2025/GlowReviverMeltingLipBalm/82488_OpenA_V8_R.jpg?sfrm=png&sw=780&q=90&strip=false";
+          productLink = "https://www.elfcosmetics.com/glow-reviver-melting-lip-balm/82488.html";
+    } else if (color == "burgundy") {
+        resultText = "You should get the e.l.f. Glow Reviver Lip Balm in the shade Blackberry Sorbet!";
+        imageLink = "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dwb790948d/2025/GlowReviverMeltingLipBalm/82485_OpenA_V8_R.jpg?sfrm=png&sw=780&q=90&strip=false";
+          productLink = "https://www.elfcosmetics.com/glow-reviver-melting-lip-balm/82485.html";
+    } else if (color == "clear") {
+        resultText = "You should get the e.l.f. Glow Reviver Lip Balm in the shade Vanilla Toffee!";
+        imageLink = "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dw85f47390/2025/GlowReviverMeltingLipBalm/82484_OpenA_V8_R.jpg?sfrm=png&sw=780&q=90&strip=false";
+          productLink = "https://www.elfcosmetics.com/glow-reviver-melting-lip-balm/82484.html";
+    } else if (color == "purple") {
+        resultText = "You should get the e.l.f. Glow Reviver Lip Balm in the shade Yummy Gummy!";
+        imageLink = "https://www.elfcosmetics.com/dw/image/v2/BBXC_PRD/on/demandware.static/-/Sites-elf-master/default/dw2fbaff8a/2025/GlowReviverMeltingLipBalm/82486_OpenA_V8_R.jpg?sfrm=png&sw=780&q=90&strip=false";
+          productLink = "https://www.elfcosmetics.com/glow-reviver-melting-lip-balm/82486.html";
+    } else {
+        resultText = "Sorry, there are no recommendations at this time :(";
+        imageLink = "";
+    }
+}
+
+
+            if (budget < 8) {
+                resultText = "Sorry, there are no recommendations at this time :(";
+            }
+
+            document.getElementById("result").innerHTML = `
+      <p>${resultText}</p>
+      ${imageLink ? `
+          <p style="color: red; font-weight: bold;">Click on image to buy</p>
+          <a href="${productLink}" target="_blank">
+              <img src="${imageLink}" alt="Product Image" style="width:200px;">
+          </a>
+      ` : ""}
+  `;
+
+
+        }
+    </script>
+</body>
+
+</html>
