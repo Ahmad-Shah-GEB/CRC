@@ -1,0 +1,388 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Labubu: Dubai Chocolate Feast</title>
+  <style>
+    :root{
+      --ui-bg: #0b1020;
+      --ui-panel: rgba(255,255,255,0.08);
+      --ui-panel-2: rgba(255,255,255,0.14);
+      --ui-text: #f4f7ff;
+      --ui-accent: #ffd166;
+      --drop-shadow: 0 10px 30px rgba(0,0,0,.35);
+      --radius-xl: 24px;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%;}
+    body{
+      margin:0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+      color:var(--ui-text);
+      background: radial-gradient(1200px 600px at 70% 0%, rgba(255,255,255,0.06), transparent 60%), var(--ui-bg);
+      overflow:hidden;
+    }
+
+    .scene{
+      position:relative; width:100%; height:100%;
+      background: url('cloud.png') center/cover no-repeat fixed;
+      isolation:isolate;
+    }
+    .veil{position:absolute; inset:0; background:linear-gradient(180deg, rgba(0,0,0,.15), rgba(0,0,0,.45)); pointer-events:none}
+
+    .hud{position:absolute; left:1rem; top:1rem; display:flex; gap:.75rem; align-items:center; z-index:50}
+    .pill{
+      background:var(--ui-panel); backdrop-filter: blur(6px);
+      padding:.6rem .9rem; border-radius:999px; box-shadow:var(--drop-shadow);
+      display:flex; align-items:center; gap:.5rem; user-select:none;
+      border:1px solid rgba(255,255,255,.12);
+    }
+    .btn{ cursor:pointer; transition:.25s transform, .25s filter; }
+    .btn:active{ transform:scale(.98) }
+    .score{font-weight:700}
+
+    .ground{ position:absolute; left:0; right:0; bottom:0; height:28%;
+      background: linear-gradient(0deg, rgba(0,0,0,.55), rgba(0,0,0,0));
+      z-index:1;
+    }
+
+    .labubu{
+      position:absolute; left:50%; bottom:11%; transform:translateX(-50%) scale(1);
+      width:min(36vmin, 420px); aspect-ratio: 1/1; z-index:2;
+      filter: drop-shadow(0 24px 50px rgba(0,0,0,.35));
+      transition: transform .2s ease;
+    }
+
+    /* New wrapper for independent shake */
+    .labubu-inner {
+      width: 100%;
+      height: 100%;
+      transform-origin: center;
+    }
+
+    .labubu-inner img{ width:100%; height:100%; object-fit:contain; display:block; pointer-events:none; }
+
+    .golden img{
+      filter: grayscale(100%) sepia(100%) saturate(900%) hue-rotate(25deg) brightness(1.15) contrast(1.05);
+    }
+
+    .tray{
+      position:absolute; right:1rem; top:1rem; display:flex; gap:.75rem; z-index:50;
+      flex-wrap:wrap; justify-content:flex-end;
+    }
+    .card{
+      background:var(--ui-panel); border:1px solid rgba(255,255,255,.12);
+      border-radius: var(--radius-xl); padding:.6rem; width:84px; height:84px;
+      display:grid; place-items:center; box-shadow:var(--drop-shadow);
+      touch-action:none;
+    }
+    .card img{ width:100%; height:100%; object-fit:contain; pointer-events:none; }
+
+    .dragging{ opacity:.9; transform: scale(1.08) rotate(-2deg); filter: drop-shadow(0 20px 30px rgba(0,0,0,.35)); }
+    .drop-ring{ position:absolute; inset:-1.2rem; border-radius:28px; pointer-events:none; border:2px dashed rgba(255,255,255,.22); opacity:0; transition:.2s }
+    .labubu.drop-ready .drop-ring{ opacity:1 }
+
+    .pop{ animation: pop .35s ease both }
+    @keyframes pop{ from{ transform:translateX(-50%) scale(.9) } to{ transform:translateX(-50%) scale(1) } }
+    .happy{ animation: happy .8s ease both }
+    @keyframes happy{ 0%{ transform:translateY(0) } 25%{ transform:translateY(-6px) } 50%{ transform:translateY(0) } 75%{ transform:translateY(-4px) } 100%{ transform:translateY(0) } }
+
+    /* Fixed shake so scale stays */
+  .shake .labubu-inner {
+    animation: shake .6s linear both;
+  }
+
+  @keyframes shake {
+    10%, 90% { transform: translate(-2px, 0); }
+    20%, 80% { transform: translate(4px, 0); }
+    30%, 50%, 70% { transform: translate(-6px, 0); }
+    40%, 60% { transform: translate(6px, 0); }
+  }
+
+
+  .boom{
+position:absolute; inset:0; display:grid; place-items:center;
+background:radial-gradient(circle at center, rgba(255,255,255,.9), rgba(255,230,180,.4) 30%, rgba(255,120,0,.25) 55%, rgba(0,0,0,.6) 80%);
+z-index:100; opacity:0; pointer-events:none; transition: opacity .35s ease;
+}
+
+.boom.show {
+pointer-events: auto; /* Allow clicks when visible */
+}
+
+    .boom.show{ opacity:1 }
+    .boom h1{ margin:0; font-size: clamp(32px, 6vmin, 72px); letter-spacing:1px; text-shadow:0 6px 20px rgba(0,0,0,.45) }
+
+    .panel{
+      position:absolute; left:50%; top:50%; transform:translate(-50%, -50%);
+      background:var(--ui-panel-2); border:1px solid rgba(255,255,255,.18); border-radius: var(--radius-xl);
+      padding:1rem; display:flex; gap:.5rem; align-items:center; box-shadow:var(--drop-shadow);
+    }
+    .panel button{ background:transparent; color:var(--ui-text); border:1px solid rgba(255,255,255,.35); border-radius: 999px; padding:.55rem .9rem; font-weight:700; cursor:pointer }
+    .panel button:hover{ background:rgba(255,255,255,.1) }
+    /* Keep Labubu's grown size; stop parent from animating its transform */
+.labubu.pop,
+.labubu.happy,
+.labubu.shake { animation: none !important; }
+
+/* Run the animations on the inner wrapper so scale is preserved */
+.pop .labubu-inner { animation: pop .35s ease both; }
+.happy .labubu-inner { animation: happy .8s ease both; }
+.shake .labubu-inner { animation: shake .6s linear both; }
+
+/* Make sure these keyframes don't include any scale for the parent */
+@keyframes pop { from { transform: scale(.9) } to { transform: scale(1) } }
+@keyframes happy {
+  0%   { transform: translateY(0) }
+  25%  { transform: translateY(-6px) }
+  50%  { transform: translateY(0) }
+  75%  { transform: translateY(-4px) }
+  100% { transform: translateY(0) }
+}
+
+/* Make "Labubu exploded. Try again" visible during explosion */
+.boom .panel {
+  background: rgba(0, 0, 0, 0.85) !important;
+  color: white !important;
+  border-radius: 16px;
+  padding: 1rem 1.5rem;
+  opacity: 0;
+  animation: fadeInPanel 0.5s ease forwards;
+  animation-delay: 0.5s; /* wait a bit after BOOM */
+}
+.boom .panel strong {
+  color: white !important;
+}
+.boom .panel button {
+  background: white;
+  color: black;
+  font-weight: bold;
+}
+
+@keyframes fadeInPanel {
+  to { opacity: 1; }
+}
+/* Dark pink for pills and cards with bold white text */
+.pill,
+.card {
+  background: #b30059 !important; /* dark pink */
+  color: #fff !important; /* white text */
+  font-weight: bold;
+  border-color: rgba(255, 255, 255, 0.25);
+}
+/* Disco Party Styling */
+.disco {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 200;
+  display: none;
+}
+
+.disco.show {
+  display: block;
+  animation: flashColors 0.3s infinite;
+}
+
+.disco-ball {
+  position: absolute;
+  top: 10%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 120px;
+  height: 120px;
+  background: radial-gradient(circle, #fff, #ccc);
+  border-radius: 50%;
+  box-shadow: 0 0 20px white, 0 0 60px yellow, 0 0 100px pink;
+  animation: spinBall 2s linear infinite;
+}
+
+@keyframes spinBall {
+  from { transform: translateX(-50%) rotate(0deg); }
+  to { transform: translateX(-50%) rotate(360deg); }
+}
+
+@keyframes flashColors {
+  0% { background-color: rgba(255,0,0,0.2); }
+  25% { background-color: rgba(0,255,0,0.2); }
+  50% { background-color: rgba(0,0,255,0.2); }
+  75% { background-color: rgba(255,255,0,0.2); }
+  100% { background-color: rgba(255,0,255,0.2); }
+}
+
+
+  </style>
+
+</head>
+<body>
+  <div class="scene" id="scene">
+    <div class="veil"></div>
+    <div class="disco" id="disco">
+  <div class="disco-ball"></div>
+</div>
+
+    <div class="hud">
+      <div class="pill">🍫 Fed: <span class="score" id="score">0</span></div>
+      <div class="pill btn" id="resetBtn">↺ Reset</div>
+      <div class="pill">💡 Drag an item to feed the Labubu</div>
+
+    </div>
+    <div class="tray">
+      <div class="card draggable" data-kind="choco">
+        <img src="chocolate.png" alt="Dubai chocolate" />
+      </div>
+      <div class="card draggable" data-kind="tralalero">
+        <img src="tralalero.png" alt="Tralalero tralala" />
+      </div>
+    </div>
+    <div class="labubu pop" id="labubu">
+      <span class="drop-ring"></span>
+      <div class="labubu-inner">
+        <img src="labubu.png" alt="Labubu" />
+      </div>
+    </div>
+    <div class="boom" id="boom">
+      <div>
+        <h1>💥 BOOM!</h1>
+        <div class="panel">
+          <strong>Labubu exploded…</strong>
+          <button id="tryAgain">Try Again</button>
+        </div>
+      </div>
+    </div>
+    <div class="ground"></div>
+  </div>
+  <script>
+  (function(){
+    const labubu = document.getElementById('labubu');
+    const scoreEl = document.getElementById('score');
+    const resetBtn = document.getElementById('resetBtn');
+    const boom = document.getElementById('boom');
+    const tryAgain = document.getElementById('tryAgain');
+    let score = 0;
+    let gameOver = false;
+    let sizeMultiplier = 1;
+
+    function setScore(n){ score = n; scoreEl.textContent = String(score); }
+
+    function updateSize(){
+      labubu.classList.remove('pop');
+      sizeMultiplier *= 1.1;
+      labubu.style.transform = `translateX(-50%) scale(${sizeMultiplier})`;
+    }
+
+    function goldify(){
+      if(gameOver) return;
+      labubu.classList.add('happy','golden');
+      setTimeout(()=> labubu.classList.remove('happy'), 900);
+      setScore(score + 1);
+if (score + 1 === 10) {
+  startDiscoParty();
+}
+
+      updateSize();
+    }
+
+    function explode(){
+  if(gameOver) return;
+  gameOver = true;
+  labubu.classList.add('shake');
+
+  // Show BOOM first
+  setTimeout(() => {
+    boom.classList.add('show');
+
+    // Hide BOOM text after a moment, then show the panel
+    const boomText = boom.querySelector('h1');
+    const boomPanel = boom.querySelector('.panel');
+
+    boomText.style.display = 'block';
+    boomPanel.style.display = 'none';
+
+    setTimeout(() => {
+      boomText.style.display = 'none';
+      boomPanel.style.display = 'flex';
+    }, 1000); // delay before panel appears
+
+  }, 200);
+}
+
+function startDiscoParty() {
+  document.getElementById('disco').classList.add('show');
+  labubu.classList.add('happy');
+}
+
+function stopDiscoParty() {
+  document.getElementById('disco').classList.remove('show');
+}
+
+    function reset(){
+      stopDiscoParty();
+      gameOver = false;
+      setScore(0);
+      sizeMultiplier = 1;
+      labubu.style.transform = 'translateX(-50%) scale(1)';
+      labubu.classList.remove('golden','shake');
+      boom.classList.remove('show');
+    }
+
+    resetBtn.addEventListener('click', reset);
+    tryAgain.addEventListener('click', reset);
+
+    const cards = Array.from(document.querySelectorAll('.draggable'));
+    let dragEl = null; let startX=0, startY=0, origin={x:0,y:0};
+    cards.forEach(card => {
+      card.style.position = 'relative';
+      card.style.left = '0px';
+      card.style.top  = '0px';
+      card.addEventListener('pointerdown', pointerDown);
+    });
+
+    function pointerDown(e){
+      if(gameOver) return;
+      dragEl = e.currentTarget;
+      dragEl.setPointerCapture(e.pointerId);
+      dragEl.classList.add('dragging');
+      startX = e.clientX; startY = e.clientY;
+      origin.x = parseFloat(dragEl.style.left)||0;
+      origin.y = parseFloat(dragEl.style.top)||0;
+      window.addEventListener('pointermove', pointerMove);
+      window.addEventListener('pointerup', pointerUp, {once:true});
+    }
+    function pointerMove(e){
+      if(!dragEl) return;
+      const dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+      dragEl.style.left = (origin.x + dx) + 'px';
+      dragEl.style.top  = (origin.y + dy) + 'px';
+      if(hitsLabubu(dragEl)){ labubu.classList.add('drop-ready'); }
+      else { labubu.classList.remove('drop-ready'); }
+    }
+    function pointerUp(e){
+      if(!dragEl) return;
+      dragEl.classList.remove('dragging');
+      labubu.classList.remove('drop-ready');
+      const overTarget = hitsLabubu(dragEl);
+      if(overTarget){
+        const kind = dragEl.getAttribute('data-kind');
+        if(kind === 'choco') goldify();
+        if(kind === 'tralalero') explode();
+        dragEl.style.left = '0px';
+        dragEl.style.top  = '0px';
+      }
+      dragEl.releasePointerCapture(e.pointerId);
+      dragEl = null;
+      window.removeEventListener('pointermove', pointerMove);
+    }
+    function hitsLabubu(el){
+      const a = el.getBoundingClientRect();
+      const b = labubu.getBoundingClientRect();
+      const cx = (a.left + a.right)/2;
+      const cy = (a.top + a.bottom)/2;
+      return (cx >= b.left && cx <= b.right && cy >= b.top && cy <= b.bottom);
+    }
+  })();
+  </script>
+</body>
+</html>
