@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Swimming Fishes Game</title>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@700&display=swap" rel="stylesheet">
+<style>
+body {
+  margin: 0;
+  overflow: hidden;
+  font-family: Arial, sans-serif;
+  color: white;
+  font-size: 18px;
+}
+
+#background {
+  position: fixed;
+  top:0; left:0;
+  width:100%; height:100%;
+  background: linear-gradient(to bottom, #0077be, #001f3f);
+  background-size: cover;
+  background-position: center;
+  z-index:0;
+}
+
+.fish {
+  position: absolute;
+  width: 100px;
+  z-index: 2;
+}
+
+#player {
+  position: absolute;
+  width: 120px;
+  z-index: 3;
+}
+
+#hud {
+  position: fixed;
+  top:10px; left:10px;
+  background: rgba(0,0,0,0.5);
+  padding: 8px 12px;
+  border-radius:8px;
+  font-family:'Formata','Fira Sans',sans-serif;
+  font-weight:700;
+  font-size:20px;
+  letter-spacing:1px;
+  z-index:10;
+}
+
+#skin-selector {
+  position: fixed;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 15;
+  display: flex;
+  gap: 10px;
+}
+
+.skin-btn-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.skin-btn {
+  width: 60px;
+  height: 60px;
+  border: 2px solid white;
+  cursor: pointer;
+  border-radius: 8px;
+}
+
+.cooldown-bar {
+  width: 60px;
+  height: 6px;
+  background: limegreen;
+  border-radius: 4px;
+  margin-top: 4px;
+  transition: width 0.1s linear;
+}
+
+#gameover {
+  position: fixed;
+  top:0; left:0;
+  width:100%; height:100%;
+  background: rgba(0,0,0,0.85);
+  display:flex;
+  flex-direction: column;
+  justify-content:center;
+  align-items:center;
+  font-family:'Press Start 2P', fantasy;
+  color:#ff4444;
+  font-size:48px;
+  text-align:center;
+  opacity:0;
+  pointer-events:none;
+  transition: opacity 0.6s ease;
+  z-index:20;
+}
+
+#gameover.show {
+  opacity:1;
+  pointer-events:auto;
+}
+
+#restart-btn {
+  margin-top:30px;
+  font-size:20px;
+  padding:10px 20px;
+  background:#ff4444;
+  color:white;
+  border:none;
+  cursor:pointer;
+  font-family:'Press Start 2P', fantasy;
+}
+
+#restart-btn:hover {
+  background:#ff2222;
+}
+
+#shield {
+  position: absolute;
+  width: 150px;
+  z-index: 4;
+  display: none;
+}
+
+#explosion {
+  position: absolute;
+  width: 200px;
+  z-index: 5;
+  display: none;
+}
+
+/* Instructions Overlay */
+#instructions {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 25;
+}
+
+#instructions-content {
+  text-align: center;
+  max-width: 600px;
+  padding: 30px;
+  color: white;
+  font-family: 'Fira Sans', sans-serif;
+}
+
+#instructions h1 {
+  font-family: 'Press Start 2P', fantasy;
+  font-size: 28px;
+  margin-bottom: 20px;
+}
+
+#instructions p {
+  font-size: 18px;
+  line-height: 1.5;
+  margin-bottom: 30px;
+}
+
+#start-btn {
+  font-family: 'Press Start 2P', fantasy;
+  font-size: 20px;
+  padding: 12px 24px;
+  background: #00ccff;
+  color: white;
+  border: none;
+  cursor: pointer;
+  border-radius: 8px;
+}
+
+#start-btn:hover {
+  background: #0099cc;
+}
+</style>
+</head>
+<body>
+
+<!-- Background -->
+<div id="background"></div>
+
+<!-- HUD -->
+<div id="hud">
+  Time: <span id="timer">0.00</span> sec<br>
+  High Score: <span id="highscore">0.00</span> sec
+</div>
+
+<!-- Game Over Screen -->
+<div id="gameover">
+  GAME OVER<br>
+  <button id="restart-btn">RESTART</button>
+</div>
+
+<!-- Player -->
+<img src="IMG_4218-2.png" id="player" alt="Player Fish">
+<img src="IMG_3019-2.png" id="shield" alt="Shield">
+<img src="explosion2.gif" id="explosion" alt="Explosion">
+
+<!-- Enemy fishes -->
+<img src="IMG_3011-3.png" class="fish" id="fish1">
+<img src="IMG_2997-2.png" class="fish" id="fish2">
+<img src="IMG_2998-removebg-.png" class="fish" id="fish3">
+<img src="IMG_4206-.png" class="fish" id="fish4">
+<img src="IMG_4217-2.png" class="fish" id="fish5">
+<img src="IMG_3012-dennymog.png" class="fish" id="fish6">
+
+<!-- Skin selector with cooldown bars -->
+<div id="skin-selector">
+  <div class="skin-btn-container">
+    <img src="IMG_4218-2.png" class="skin-btn" data-skin="IMG_4218-2.png" data-key="1">
+    <div class="cooldown-bar" id="bar1"></div>
+  </div>
+  <div class="skin-btn-container">
+    <img src="IMG_3014-adam-2.png" class="skin-btn" data-skin="IMG_3014-adam-2.png" data-key="2">
+    <div class="cooldown-bar" id="bar2"></div>
+  </div>
+  <div class="skin-btn-container">
+    <img src="IMG_3015-2.png" class="skin-btn" data-skin="IMG_3015-2.png" data-key="3">
+    <div class="cooldown-bar" id="bar3"></div>
+  </div>
+  <div class="skin-btn-container">
+    <img src="IMG_3016-2.png" class="skin-btn" data-skin="IMG_3016-2.png" data-key="4">
+    <div class="cooldown-bar" id="bar4"></div>
+  </div>
+</div>
+
+<!-- Instructions Overlay -->
+<div id="instructions">
+  <div id="instructions-content">
+    <h1>How to Play</h1>
+    <p>
+      You are a fish trying to survive as long as possible!<br><br>
+      Use the <strong>Arrow Keys</strong> to move.<br>
+      Press <strong>Space</strong> to activate your special ability — each skin has its own power.<br><br>
+      Avoid enemy fish or use your abilities to escape and survive!
+    </p>
+    <button id="start-btn">START</button>
+  </div>
+</div>
+
+<script>
+const player = document.getElementById('player');
+const shield = document.getElementById('shield');
+const explosion = document.getElementById('explosion');
+let activeSkin = 'IMG_4218-2.png';
+let abilityCooldown = false;
+let gameStarted = false;
+
+// Cooldown bars
+const cooldownBars = {
+  'IMG_4218-2.png': document.getElementById('bar1'),
+  'IMG_3014-adam-2.png': document.getElementById('bar2'),
+  'IMG_3015-2.png': document.getElementById('bar3'),
+  'IMG_3016-2.png': document.getElementById('bar4')
+};
+
+const fishes = [
+  { el: document.getElementById('fish1'), speed: 1.2, alive:true },
+  { el: document.getElementById('fish2'), speed: 1.5, alive:true },
+  { el: document.getElementById('fish3'), speed: 1.3, alive:true },
+  { el: document.getElementById('fish4'), speed: 1.6, alive:true },
+  { el: document.getElementById('fish5'), speed: 1.4, alive:true },
+  { el: document.getElementById('fish6'), speed: 1.1, alive:true }
+];
+
+let posX, posY, playerDX=0, playerDY=0;
+let playerSpeed = 14;
+let startTime, timerInterval;
+let highScore = parseFloat(localStorage.getItem('highScore'))||0;
+document.getElementById('highscore').textContent = highScore.toFixed(2);
+
+const gameOverScreen = document.getElementById('gameover');
+const restartBtn = document.getElementById('restart-btn');
+const background = document.getElementById('background');
+background.style.backgroundImage = "url('spongebob.png')";
+
+// --- Fixed Skin Selection ---
+document.querySelectorAll('.skin-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    setActiveSkin(btn.dataset.skin);
+  });
+});
+
+document.addEventListener('keydown', (e) => {
+  if (['1','2','3','4'].includes(e.key)) {
+    const btn = document.querySelector(`.skin-btn[data-key="${e.key}"]`);
+    if (btn) setActiveSkin(btn.dataset.skin);
+  }
+});
+
+function setActiveSkin(skin) {
+  activeSkin = skin;
+  player.src = skin;
+}
+
+// --- Abilities ---
+document.addEventListener('keydown', (e) => {
+  if (!gameStarted) return;
+  if (e.code === 'Space' && !abilityCooldown) {
+    e.preventDefault();
+    activateAbility(activeSkin);
+  }
+});
+
+function activateAbility(skin){
+  abilityCooldown=true;
+  const bar = cooldownBars[skin];
+  if(bar) bar.style.width='0%';
+
+  if(skin.includes('IMG_4218-2')){
+    playerSpeed *=2;
+    animateCooldown(bar,3000);
+    setTimeout(()=>{playerSpeed/=2; abilityCooldown=false;},3000);
+
+  } else if(skin.includes('IMG_3014')){
+    player.invincible=true;
+    shield.style.left=posX-15+'px';
+    shield.style.top=posY-15+'px';
+    shield.style.display='block';
+    animateCooldown(bar,3000);
+    setTimeout(()=>{player.invincible=false; shield.style.display='none'; abilityCooldown=false;},3000);
+
+  } else if(skin.includes('IMG_3015')){
+    explosion.style.left = posX - 40 + 'px';
+    explosion.style.top = posY - 40 + 'px';
+    explosion.style.display = 'block';
+    animateCooldown(bar,3000);
+    fishes.forEach(f => {
+      if(f.alive){
+        let dx = parseFloat(f.el.style.left) - posX;
+        let dy = parseFloat(f.el.style.top) - posY;
+        if(Math.sqrt(dx*dx + dy*dy) < 200){
+          f.el.style.display = 'none';
+          f.alive = false;
+          setTimeout(() => {
+            let spawn = randomSpawnPosition();
+            f.el.style.left = spawn.x + 'px';
+            f.el.style.top = spawn.y + 'px';
+            f.el.style.display = 'block';
+            f.alive = true;
+          }, 3000);
+        }
+      }
+    });
+    setTimeout(()=>{ explosion.style.display = 'none'; abilityCooldown = false; }, 3000);
+
+  } else if(skin.includes('IMG_3016')){
+    animateCooldown(bar,3000);
+    let closestFish = null;
+    let minDistance = Infinity;
+    fishes.forEach(f=>{
+      if(f.alive){
+        let dx = parseFloat(f.el.style.left) - posX;
+        let dy = parseFloat(f.el.style.top) - posY;
+        let distance = Math.sqrt(dx*dx + dy*dy);
+        if(distance < minDistance){
+          minDistance = distance;
+          closestFish = f;
+        }
+      }
+    });
+    if(closestFish){
+      closestFish.el.style.display='none';
+      closestFish.alive = false;
+      setTimeout(()=>{
+        let spawn = randomSpawnPosition();
+        closestFish.el.style.left = spawn.x + 'px';
+        closestFish.el.style.top = spawn.y + 'px';
+        closestFish.el.style.display='block';
+        closestFish.alive = true;
+      }, 2000);
+    }
+    setTimeout(()=>{ abilityCooldown=false; },3000);
+  }
+}
+
+function animateCooldown(bar, duration){
+  let start = null;
+  function step(timestamp){
+    if(!start) start=timestamp;
+    let progress = timestamp-start;
+    let widthPercent = Math.min(progress/duration*100,100);
+    bar.style.width = widthPercent+'%';
+    if(progress<duration) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+
+function randomSpawnPosition(){
+  const edge = Math.floor(Math.random()*4);
+  let x,y;
+  if(edge===0){x=Math.random()*window.innerWidth; y=-120;}
+  else if(edge===1){x=window.innerWidth+120; y=Math.random()*window.innerHeight;}
+  else if(edge===2){x=Math.random()*window.innerWidth; y=window.innerHeight+120;}
+  else {x=-120; y=Math.random()*window.innerHeight;}
+  return {x,y};
+}
+
+function resetGame(){
+  gameOverScreen.classList.remove('show');
+  posX=window.innerWidth/2;
+  posY=window.innerHeight/2;
+  player.style.left=posX+'px';
+  player.style.top=posY+'px';
+  playerDX=0; playerDY=0;
+  fishes.forEach(f=>{
+    const spawn=randomSpawnPosition();
+    f.el.style.left=spawn.x+'px';
+    f.el.style.top=spawn.y+'px';
+    f.el.style.display='block';
+    f.alive=true;
+  });
+  clearInterval(timerInterval);
+  startTime=Date.now();
+  timerInterval=setInterval(updateTimer,10);
+}
+
+function updateTimer(){
+  let timeElapsed=(Date.now()-startTime)/1000;
+  document.getElementById('timer').textContent=timeElapsed.toFixed(2);
+}
+
+function moveFishes(){
+  fishes.forEach(f=>{
+    if(!f.alive) return;
+    let fishX=parseFloat(f.el.style.left);
+    let fishY=parseFloat(f.el.style.top);
+    let predictedX=posX+playerDX*5;
+    let predictedY=posY+playerDY*5;
+    let dx=predictedX-fishX;
+    let dy=predictedY-fishY;
+    let distance=Math.sqrt(dx*dx+dy*dy);
+    let speedBoost=1+Math.min(distance/300,1);
+    if(distance>0){
+      fishX+=(dx/distance)*f.speed*speedBoost;
+      fishY+=(dy/distance)*f.speed*speedBoost;
+    }
+    f.el.style.left=fishX+'px';
+    f.el.style.top=fishY+'px';
+    if(Math.abs(fishX-posX)<50 && Math.abs(fishY-posY)<50 && !player.invincible) gameOver();
+  });
+  if(player.invincible){
+    shield.style.left=posX-15+'px';
+    shield.style.top=posY-15+'px';
+  }
+  requestAnimationFrame(moveFishes);
+}
+
+function gameOver(){
+  clearInterval(timerInterval);
+  let timeElapsed=(Date.now()-startTime)/1000;
+  if(timeElapsed>highScore){
+    highScore=timeElapsed;
+    localStorage.setItem('highScore',highScore);
+  }
+  document.getElementById('highscore').textContent=highScore.toFixed(2);
+  gameOverScreen.classList.add('show');
+}
+
+restartBtn.addEventListener('click',()=>{ resetGame(); });
+
+// Prevent movement until game starts
+document.addEventListener('keydown',(e)=>{
+  if (!gameStarted) return;
+  let oldX=posX, oldY=posY;
+  if(e.key==='ArrowUp') posY-=playerSpeed;
+  if(e.key==='ArrowDown') posY+=playerSpeed;
+  if(e.key==='ArrowLeft') posX-=playerSpeed;
+  if(e.key==='ArrowRight') posX+=playerSpeed;
+  posX=Math.max(0,Math.min(window.innerWidth-player.width,posX));
+  posY=Math.max(0,Math.min(window.innerHeight-player.height,posY));
+  playerDX=posX-oldX;
+  playerDY=posY-oldY;
+  player.style.left=posX+'px';
+  player.style.top=posY+'px';
+});
+
+// Start button logic
+document.getElementById('start-btn').addEventListener('click', () => {
+  document.getElementById('instructions').style.display = 'none';
+  gameStarted = true;
+  resetGame();
+  moveFishes();
+});
+</script>
+</body>
+</html>
