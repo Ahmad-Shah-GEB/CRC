@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Maze Escape - With Traps</title>
+<style>
+  body {
+    background: radial-gradient(circle at center, #111 0%, #000 100%);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    color: white;
+    font-family: Arial, sans-serif;
+  }
+  #game-container {
+    display: flex;
+    gap: 20px;
+  }
+  #scoreboard {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  #maze {
+    display: grid;
+    grid-template-columns: repeat(15, 40px);
+    grid-template-rows: repeat(15, 40px);
+    gap: 2px;
+    background: #111;
+    padding: 5px;
+    border: 3px solid #444;
+    box-shadow: 0 0 20px #222 inset;
+  }
+  .cell {
+    width: 40px;
+    height: 40px;
+    border-radius: 5px;
+  }
+  .wall {
+    background: linear-gradient(145deg, #2b2b2b, #1a1a1a);
+    border: 1px solid rgba(0, 255, 255, 0.4);
+    box-shadow: 0 0 8px rgba(0, 255, 255, 0.5), inset 0 0 10px rgba(0, 255, 255, 0.2);
+  }
+  .path {
+    background: #ddd;
+  }
+  .trap {
+    background: darkred;
+    box-shadow: 0 0 10px crimson, 0 0 20px red;
+    border-radius: 50%;
+  }
+  .player {
+    background: red;
+    border-radius: 50%;
+    box-shadow: 0 0 10px red, 0 0 20px red, 0 0 30px red;
+    animation: pulse 1s infinite;
+  }
+  .goal {
+    background: gold;
+    border-radius: 50%;
+    box-shadow: 0 0 10px gold, 0 0 20px orange, 0 0 30px gold;
+  }
+  #message {
+    margin-top: 20px;
+    font-size: 24px;
+    display: none;
+    background: rgba(0,0,0,0.7);
+    padding: 10px 20px;
+    border-radius: 8px;
+  }
+  #play-again {
+    margin-top: 10px;
+    padding: 10px 15px;
+    font-size: 18px;
+    background: gold;
+    color: black;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    display: none;
+  }
+  @keyframes pulse {
+    0% { box-shadow: 0 0 10px red, 0 0 20px red, 0 0 30px red; }
+    50% { box-shadow: 0 0 20px red, 0 0 40px red, 0 0 60px red; }
+    100% { box-shadow: 0 0 10px red, 0 0 20px red, 0 0 30px red; }
+  }
+  body {
+    display: flex;
+    background: black;
+    color: white;
+    font-family: Arial, sans-serif;
+  }
+  #sidebar {
+    width: 200px;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  #scoreboard, #miniScoreboard {
+    margin-top: 20px;
+    padding: 10px;
+    border: 2px solid yellow;
+    border-radius: 8px;
+    text-align: center;
+    background-color: #111;
+    width: 100%;
+  }
+  #maze {
+    display: grid;
+    grid-template-columns: repeat(15, 30px);
+    gap: 2px;
+    margin-left: 20px;
+  }
+  .cell {
+    width: 30px;
+    height: 30px;
+    background-color: white;
+  }
+  .wall { background-color: black; }
+  .player { background-color: blue; }
+  .exit { background-color: yellow; }
+  .trap { background-color: red; }
+
+</style>
+</head>
+<body>
+
+<div id="game-container">
+  <div id="scoreboard">
+    <div id="timer">Time Left: 30s</div>
+    <div id="message"></div>
+    <button id="play-again">Play Again</button>
+  </div>
+  <div id="maze"></div>
+</div>
+
+<div id="sidebar">
+  <div id="time">Time Left: 0s</div>
+  <div id="gameMessage"></div>
+  <button id="playAgain" style="display:none;">Play Again</button>
+
+  <!-- Mini Scoreboard -->
+  <div id="miniScoreboard">
+    <h4>Mini Scoreboard</h4>
+    <p>Best Score: <span id="bestScore">0</span></p>
+    <p>Times Escaped: <span id="wins">0</span></p>
+    <p>Trap Hits: <span id="trapHits">0</span></p>
+  </div>
+
+  <!-- Main Scoreboard -->
+  <div id="scoreboard">
+    <h3>Score</h3>
+    <p id="score">0</p>
+  </div>
+</div>
+
+<div id="maze"></div>
+
+<script>
+const mazes = [
+  // Level 1
+  [
+    "###############",
+    "#     #   T   #",
+    "### # ### ### #",
+    "#   #     #   #",
+    "# ### ### ### #",
+    "#   #   #     #",
+    "### ### # ### #",
+    "#     #   #   #",
+    "# ### ### # ###",
+    "# #   # T #   #",
+    "# ### ### ### #",
+    "#     #       #",
+    "### # ### # ###",
+    "#       #     #",
+    "###############"
+  ],
+  // Level 2
+  [
+    "###############",
+    "#   #       # #",
+    "# # # ##### # #",
+    "# #     #   # #",
+    "# ##### # ### #",
+    "#     # #     #",
+    "##### ### #####",
+    "#   #     #   #",
+    "# ### ### ### #",
+    "#   #   #     #",
+    "### ### ##### #",
+    "#     #     # #",
+    "# ### ##### # #",
+    "#   #       # #",
+    "###############"
+  ],
+  // Level 3
+  [
+    "###############",
+    "#     #       #",
+    "### # # ### # #",
+    "#   #   # #   #",
+    "# ### ### # ###",
+    "#   #     #   #",
+    "### ##### ### #",
+    "#   #   #     #",
+    "# ### # ### ###",
+    "#   # #   #   #",
+    "### # ### ### #",
+    "#   #     #   #",
+    "# ### ### ### #",
+    "#             #",
+    "###############"
+  ],
+  // Level 4
+  [
+    "###############",
+    "#   T     #   #",
+    "### ### ### # #",
+    "#   #     # # #",
+    "# ### ##### # #",
+    "#     #     # #",
+    "##### # ##### #",
+    "#   #   #     #",
+    "# ### ### ### #",
+    "#     #   #   #",
+    "### ### ### # #",
+    "#     #     # #",
+    "# ### ##### # #",
+    "#   #       # #",
+    "###############"
+  ],
+  // Level 5
+  [
+    "###############",
+    "#     #     T #",
+    "### # ### ### #",
+    "#   #   #     #",
+    "# ##### ### ###",
+    "#     #       #",
+    "### ### ##### #",
+    "#   #     #   #",
+    "# # ### ### ###",
+    "# #   #     # #",
+    "### ### ### # #",
+    "#   #     #   #",
+    "# ### ### ### #",
+    "#             #",
+    "###############"
+  ],
+  // Level 6
+  [
+    "###############",
+    "#   #       # #",
+    "# # ### ### # #",
+    "# #   #   # # #",
+    "# ### ### # ###",
+    "#     #   #   #",
+    "##### # ##### #",
+    "#     #     # #",
+    "### ##### ### #",
+    "#   #     #   #",
+    "### # ### ### #",
+    "#   # #   #   #",
+    "# ### ### ### #",
+    "#             #",
+    "###############"
+  ],
+  // Level 7
+  [
+    "###############",
+    "# T       #   #",
+    "# ### ### ### #",
+    "#   #     #   #",
+    "### ### ### ###",
+    "#     #   #   #",
+    "##### # ### ###",
+    "#   # #   #   #",
+    "# ### ### ### #",
+    "#   #   #     #",
+    "### ### ### ###",
+    "#   #     #   #",
+    "# ### ### ### #",
+    "#             #",
+    "###############"
+  ],
+  // Level 8
+  [
+    "###############",
+    "#     #       #",
+    "# ### # ### ###",
+    "# #   #   #   #",
+    "# ### ##### # #",
+    "#   #     #   #",
+    "### ##### ### #",
+    "#   #   #     #",
+    "# ### ### ### #",
+    "#   #     #   #",
+    "### # ### ### #",
+    "#   #   #     #",
+    "# ### ### ### #",
+    "#             #",
+    "###############"
+  ]
+];
+
+let currentLevel = 0;
+let playerPos = { x: 1, y: 1 };
+let goalPos = { x: 13, y: 13 };
+let timeLeft = 15;
+let timerInterval;
+
+function removeTrapsNearGoal() {
+  const layout = mazes[currentLevel].map(row => row.split(""));
+  for (let y = goalPos.y - 1; y <= goalPos.y + 1; y++) {
+    for (let x = goalPos.x - 1; x <= goalPos.x + 1; x++) {
+      if (layout[y] && layout[y][x] === "T") {
+        layout[y][x] = " ";
+      }
+    }
+  }
+  mazes[currentLevel] = layout.map(row => row.join(""));
+}
+
+function drawMaze() {
+  const maze = document.getElementById("maze");
+  maze.innerHTML = "";
+  const layout = mazes[currentLevel];
+  for (let y = 0; y < layout.length; y++) {
+    for (let x = 0; x < layout[y].length; x++) {
+      const cell = document.createElement("div");
+      cell.classList.add("cell");
+
+      if (layout[y][x] === "#") {
+        cell.classList.add("wall");
+      } else if (layout[y][x] === "T") {
+        cell.classList.add("trap");
+      } else {
+        cell.classList.add("path");
+      }
+
+      if (x === playerPos.x && y === playerPos.y) {
+        cell.classList.add("player");
+      }
+
+      if (x === goalPos.x && y === goalPos.y) {
+        cell.classList.add("goal");
+      }
+
+      maze.appendChild(cell);
+    }
+  }
+}
+
+function movePlayer(dx, dy) {
+  const layout = mazes[currentLevel];
+  const newX = playerPos.x + dx;
+  const newY = playerPos.y + dy;
+
+  if (layout[newY][newX] !== "#") {
+    playerPos.x = newX;
+    playerPos.y = newY;
+  }
+
+  drawMaze();
+
+  if (layout[playerPos.y][playerPos.x] === "T") {
+    playerPos = { x: 1, y: 1 };
+    startTimer();
+    drawMaze();
+    return;
+  }
+
+  if (playerPos.x === goalPos.x && playerPos.y === goalPos.y) {
+    nextLevel();
+  }
+}
+
+function startTimer() {
+  clearInterval(timerInterval);
+  timeLeft = 15;
+  document.getElementById("timer").textContent = `Time Left: ${timeLeft}s`;
+  timerInterval = setInterval(() => {
+    timeLeft--;
+    document.getElementById("timer").textContent = `Time Left: ${timeLeft}s`;
+    if (timeLeft <= 0) {
+      endGame(false, "⏳ Time's Up! Game Over!");
+    }
+  }, 1000);
+}
+
+function nextLevel() {
+  if (currentLevel < mazes.length - 1) {
+    currentLevel++;
+    playerPos = { x: 1, y: 1 };
+
+    if (currentLevel === 1) {
+      removeTrapsNearGoal();
+    }
+
+    startTimer();
+    drawMaze();
+  } else {
+    endGame(true, "🏆 You Beat All Levels!");
+  }
+}
+
+function endGame(won, msg) {
+  clearInterval(timerInterval);
+  document.getElementById("message").style.display = "block";
+  document.getElementById("message").textContent = msg;
+  document.getElementById("play-again").style.display = "block";
+  let playerPos = { x: 1, y: 1 };
+let score = 0;
+let gameOver = false;
+
+const maze = document.getElementById("maze");
+const playAgainBtn = document.getElementById("playAgain");
+}
+
+document.getElementById("play-again").addEventListener("click", () => {
+  currentLevel = 0;
+  playerPos = { x: 1, y: 1 };
+  document.getElementById("message").style.display = "none";
+  document.getElementById("play-again").style.display = "none";
+  startTimer();
+  drawMaze();
+});
+
+document.addEventListener("keydown", (e) => {
+  if (e.key === "ArrowUp") movePlayer(0, -1);
+  if (e.key === "ArrowDown") movePlayer(0, 1);
+  if (e.key === "ArrowLeft") movePlayer(-1, 0);
+  if (e.key === "ArrowRight") movePlayer(1, 0);
+});
+
+drawMaze();
+startTimer();
+</script>
+
+</body>
+</html>
+
+
+
+
+<script>
+const layout = [
+  "###############",
+  "#             #",
+  "### ### ### ###",
+  "#   #   #     #",
+  "# ### ### ### #",
+  "#             #",
+  "##### ### #####",
+  "#   #     #   #",
+  "### ### ### ###",
+  "#             #",
+  "### ### ### ###",
+  "#     #   #   #",
+  "# ### ### ### #",
+  "#            E#",
+  "###############"
+];
+
+let playerPos = { x: 1, y: 1 };
+let score = 0;
+let bestScore = 0;
+let wins = 0;
+let trapHits = 0;
+let gameOver = false;
+
+const maze = document.getElementById("maze");
+const playAgainBtn = document.getElementById("playAgain");
+
+function drawMaze() {
+  maze.innerHTML = "";
+  layout.forEach((row, y) => {
+    row.split("").forEach((cell, x) => {
+      const div = document.createElement("div");
+      div.classList.add("cell");
+      if (cell === "#") div.classList.add("wall");
+      if (cell === "E") div.classList.add("exit");
+      if (cell === "T") div.classList.add("trap");
+      if (playerPos.x === x && playerPos.y === y) div.classList.add("player");
+      maze.appendChild(div);
+    });
+  });
+}
+
+function updateScore(amount) {
+  score += amount;
+  document.getElementById("score").innerText = score;
+}
+
+function updateMiniScoreboard() {
+  document.getElementById("bestScore").innerText = bestScore;
+  document.getElementById("wins").innerText = wins;
+  document.getElementById("trapHits").innerText = trapHits;
+}
+
+function resetGame() {
+  playerPos = { x: 1, y: 1 };
+  score = 0;
+  gameOver = false;
+  document.getElementById("score").innerText = score;
+  document.getElementById("gameMessage").innerText = "";
+  playAgainBtn.style.display = "none";
+  drawMaze();
+}
+
+document.addEventListener("keydown", e => {
+  if (gameOver) return;
+
+  let newX = playerPos.x;
+  let newY = playerPos.y;
+  if (e.key === "ArrowUp") newY--;
+  if (e.key === "ArrowDown") newY++;
+  if (e.key === "ArrowLeft") newX--;
+  if (e.key === "ArrowRight") newX++;
+
+  if (layout[newY][newX] !== "#") {
+    playerPos = { x: newX, y: newY };
+    updateScore(1);
+  }
+
+  if (layout[playerPos.y][playerPos.x] === "T") {
+    playerPos = { x: 1, y: 1 };
+    score = 0;
+    trapHits++;
+    updateMiniScoreboard();
+    document.getElementById("score").innerText = score;
+  }
+
+  if (layout[playerPos.y][playerPos.x] === "E") {
+    document.getElementById("gameMessage").innerText = "🎉 You Escaped!";
+    playAgainBtn.style.display = "block";
+    gameOver = true;
+
+    wins++;
+    if (score > bestScore) bestScore = score;
+    updateMiniScoreboard();
+  }
+
+  drawMaze();
+});
+
+playAgainBtn.addEventListener("click", resetGame);
+
+drawMaze();
+updateMiniScoreboard();
+</script>
+
+</body>
+</html>
