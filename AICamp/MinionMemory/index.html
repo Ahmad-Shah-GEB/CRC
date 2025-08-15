@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Memory Match — Single Pile</title>
+<style>
+  :root{
+    --card-w:100px; --card-h:140px; --gap:10px;
+  }
+  body{
+    margin:0; padding:20px; background:linear-gradient(135deg,#183a5a,#0b2233); color:#fff;
+    font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial; min-height:100vh; display:flex; flex-direction:column; align-items:center;
+  }
+  h1{margin:8px 0 4px; font-size:24px}
+  .stats{display:flex; gap:20px; margin:8px 0 16px; font-weight:600}
+  .game-wrap{display:flex; gap:20px; width:100%; max-width:980px; align-items:flex-start; justify-content:center}
+
+  .board{
+    display:grid; grid-template-columns:repeat(4,var(--card-w)); /* Round 1: 2 rows of 4 */
+    grid-auto-rows:var(--card-h); gap:var(--gap); justify-content:center; align-content:start;
+    background:rgba(255,255,255,0.05); padding:16px; border-radius:14px; box-shadow:0 8px 24px rgba(0,0,0,0.25);
+  }
+
+  .card{ width:var(--card-w); height:var(--card-h); perspective:1000px; cursor:pointer;}
+  .card-inner{ width:100%; height:100%; position:relative; transform-style:preserve-3d; transition:transform .45s; border-radius:12px; }
+  .card.flipped .card-inner{ transform:rotateY(180deg); }
+  .face{ position:absolute; inset:0; backface-visibility:hidden; border-radius:12px; overflow:hidden; }
+  .front{ background:#d0d7e2 url('card-back.png') center/cover no-repeat; display:grid; place-items:center; color:#0b2233; font-weight:700; font-size:20px; }
+  .back{ transform:rotateY(180deg); background-size:cover; background-position:center; border:2px solid rgba(255,255,255,0.9); }
+  .card.matched{ pointer-events:none; }
+
+  /* Single pile stack */
+  .pile{ position:relative; width:calc(var(--card-w)*0.7); height:calc(var(--card-h)*0.9); margin-top:6px; }
+  .pile img{ position:absolute; top:0; left:0; width:100%; height:100%; border-radius:8px; border:1px solid rgba(255,255,255,0.9); box-shadow:0 4px 10px rgba(0,0,0,0.35); }
+  .sidebar{ min-width:160px; text-align:center; background:rgba(255,255,255,0.05); padding:12px; border-radius:14px; box-shadow:0 8px 24px rgba(0,0,0,0.25); }
+
+  /* Next Round button at bottom center */
+  #nextRound{ position:fixed; left:50%; transform:translateX(-50%); bottom:16px; background:#ffd34d; color:#1b1b1b; border:0; padding:12px 18px; font-weight:800; border-radius:12px; cursor:pointer; box-shadow:0 8px 20px rgba(0,0,0,0.35); display:none; }
+  #nextRound:hover{ filter:brightness(0.95); }
+
+  @media (max-width:860px){ .game-wrap{flex-direction:column; align-items:center} .sidebar{order:2} }
+</style>
+</head>
+<body>
+  <h1>Memory Match</h1>
+  <div class="stats">
+    <div>Coins: <span id="coins">0</span></div>
+    <div>Score: <span id="score">0</span></div>
+    <div>Round: <span id="round">1</span></div>
+  </div>
+
+  <div class="game-wrap">
+    <div id="board" class="board" aria-live="polite"></div>
+    <aside class="sidebar">
+      <div style="font-weight:700; margin-bottom:6px">Matched Pile</div>
+      <div id="pile" class="pile" aria-label="matched pile"></div>
+    </aside>
+  </div>
+
+  <button id="nextRound">Next Round</button>
+
+<script>
+  // ====== Config ======
+  const IMAGE_POOL = [
+    'fish_1.png','fish_2.png','fish_3.png','fish_4.png','fish_5.png','fish_6.png','fish_7.png','fish_8.png','fish_9.png','fish_10.png','fish_11.png','fish_12.png'
+  ];
+  const START_CARDS = 8; // must be even
+  const ADD_PER_ROUND = 4; // adds two pairs each round
+  const REVEAL_MS = 800; // time to wait before checking mismatch
+  const COINS_PER_MATCH = 5;
+  const SCORE_PLUS = 10;
+  const SCORE_MINUS = 2; // but never below 0
+
+  // ====== State ======
+  let round = 1;
+  let totalCardsThisRound = START_CARDS;
+  let coins = 0; let score = 0;
+  let first = null, second = null, lock = false; // selection state
+  let matchesFound = 0;
+
+  // ====== DOM ======
+  const board = document.getElementById('board');
+  const pile = document.getElementById('pile');
+  const coinsEl = document.getElementById('coins');
+  const scoreEl = document.getElementById('score');
+  const roundEl = document.getElementById('round');
+  const nextBtn = document.getElementById('nextRound');
+
+  // ====== Helpers ======
+  const shuffle = arr => arr.sort(() => Math.random() - 0.5);
+
+  function setColumnsForCount(count){
+    // Keep things tidy: up to 8 columns, but ensure at least 4 for the first rounds
+    const cols = Math.max(4, Math.min(8, Math.ceil(Math.sqrt(count))));
+    board.style.gridTemplateColumns = `repeat(${cols}, var(--card-w))`;
+  }
+
+  function makeCard(imgSrc){
+    const el = document.createElement('div');
+    el.className = 'card';
+    el.innerHTML = `
+      <div class="card-inner">
+        <div class="face front">?</div>
+        <div class="face back" style="background-image:url('${imgSrc}')"></div>
+      </div>`;
+    el.dataset.image = imgSrc;
+    el.addEventListener('click', () => onFlip(el));
+    return el;
+  }
+
+  function dealRound(){
+    board.innerHTML = '';
+    matchesFound = 0;
+    setColumnsForCount(totalCardsThisRound);
+
+    // choose needed unique images (half the card count)
+    const needPairs = totalCardsThisRound / 2;
+    const chosen = IMAGE_POOL.slice(0, needPairs);
+    const deck = shuffle([...chosen, ...chosen]);
+    deck.forEach(src => board.appendChild(makeCard(src)));
+
+    // hide Next button until round is cleared
+    nextBtn.style.display = 'none';
+  }
+
+  function onFlip(card){
+    if (lock || card.classList.contains('flipped') || card.classList.contains('matched')) return;
+    card.classList.add('flipped');
+
+    if (!first){
+      first = card; return;
+    }
+    if (card === first) return; // same card safeguard
+    second = card; lock = true;
+
+    setTimeout(checkMatch, REVEAL_MS);
+  }
+
+  function checkMatch(){
+    const a = first.dataset.image; const b = second.dataset.image;
+    if (a === b){
+      // match
+      coins += COINS_PER_MATCH; score += SCORE_PLUS; updateHUD();
+      first.classList.add('matched'); second.classList.add('matched');
+      // move images into the single pile (as IMG children stacked)
+      [a,b].forEach((src, i)=>{
+        const img = document.createElement('img');
+        img.src = src; // slight offset so the pile looks stacked
+        const n = pile.childElementCount;
+        img.style.top = (n * 2) + 'px';
+        pile.appendChild(img);
+      });
+      // remove matched cards from the board after a tiny delay for polish
+      setTimeout(()=>{ first.remove(); second.remove(); maybeRoundComplete(); resetPick(); }, 120);
+    } else {
+      // no match
+      score = Math.max(0, score - SCORE_MINUS); updateHUD();
+      first.classList.remove('flipped');
+      second.classList.remove('flipped');
+      resetPick();
+    }
+  }
+
+  function resetPick(){ first = null; second = null; lock = false; }
+
+  function maybeRoundComplete(){
+    matchesFound++;
+    const remaining = board.querySelectorAll('.card').length;
+    if (remaining === 0){
+      // round cleared
+      nextBtn.style.display = 'inline-block';
+    }
+  }
+
+  function updateHUD(){ coinsEl.textContent = coins; scoreEl.textContent = score; roundEl.textContent = round; }
+
+  nextBtn.addEventListener('click', () => {
+    round++; totalCardsThisRound += ADD_PER_ROUND; updateHUD();
+    dealRound(); // Pile persists across rounds by design
+  });
+
+  // ====== Init ======
+  updateHUD();
+  dealRound();
+</script>
+</body>
+</html>
