@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Froyo Shop</title>
+<style>
+body{font-family:sans-serif;text-align:center;margin:0;background:#d0f0ff}
+#shop{background:#fff0c1;padding:10px;max-width:500px;margin:auto;border:5px solid #a0522d;position:relative}
+#customer img{width:80px;height:80px;border-radius:50%}
+#bubble{background:#fff;padding:5px;border-radius:10px;margin:10px}
+#build{height:250px;background:#ffecb3;margin:10px;border:2px solid #ccc;position:relative;overflow:hidden}
+button{margin:3px;padding:5px;border:none;border-radius:8px;background:#ffb6b6;cursor:pointer}
+button img{display:block;margin:auto;width:40px;height:40px}
+.scoop{width:40px;height:40px;border-radius:50%;position:absolute;z-index:1}
+.topping{width:30px;height:30px;position:absolute;z-index:2}
+#cone{width:100px;position:absolute;bottom:0;left:50%;transform:translateX(-50%);z-index:0}
+</style>
+</head>
+<body>
+<h1>Froyo Shop</h1>
+<div id="shop">
+  <div id="customer"><img id="custImg"></div>
+  <div id="bubble">Order: <span id="want"></span></div>
+  <div id="build"></div>
+  <div id="buttons"></div>
+  <button onclick="serve()">Serve</button>
+</div>
+<audio id="ding" src="https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg"></audio>
+<script>
+let flavors=[
+  ["Vanilla","vanilla.png"],
+  ["Chocolate","chocolate.png"],
+  ["Strawberry","strawberry.png"]
+];
+let toppings=[
+  ["Sprinkles","scattered_sprinkles.png"],
+  ["Cherry","cherry2.png"],
+  ["Choco Chips","choco_chips.png"]
+];
+let customers=[
+  {img:"donkey.png",fav:"Vanilla"},
+  {img:"bear.png",fav:"Chocolate"},
+  {img:"panda.png",fav:"Strawberry"}
+];
+let items=[...flavors,...toppings],order=[],build=[],cust;
+
+const buttons = document.getElementById('buttons');
+const buildEl = document.getElementById('build');
+const custImg = document.getElementById('custImg');
+
+buttons.innerHTML = items.map(([n,img])=>`<button onclick="add(['${n}','${img}'])">${n}<img src="${img}"></button>`).join('');
+
+function newOrder(){
+  cust = customers[Math.floor(Math.random()*customers.length)];
+  custImg.onerror = ()=>custImg.src="https://via.placeholder.com/80?text=😊";
+  custImg.src = cust.img;
+  order = [cust.fav, toppings[Math.floor(Math.random()*toppings.length)][0]];
+  document.getElementById('want').textContent = order.join(" + ");
+  build = [];
+  showBuild();
+}
+
+function showBuild(){
+  let html = "";
+  const coneHeight = 70; // height of cone.png in px
+  const scoopHeight = 20; // height of each scoop
+  let scoopY = coneHeight; // start right on top of cone
+
+  // draw cone first
+  html += `<img id="cone" src="cone.png" style="position:absolute;bottom:0;left:50%;transform:translateX(-50%)">`;
+
+  build.forEach(it=>{
+    if(flavors.some(f=>f[0]===it[0])){
+      // scoop directly on top of previous
+      html += `<img class="scoop" src="${it[1]}" style="position:absolute;bottom:${scoopY}px;left:50%;transform:translateX(-50%)">`;
+      scoopY += scoopHeight; // next scoop stacked above
+    } else {
+      // topping directly on last scoop
+      html += `<img class="topping" src="${it[1]}" style="position:absolute;bottom:${scoopY - scoopHeight/2}px;left:50%;transform:translateX(-50%)">`;
+    }
+  });
+
+  buildEl.innerHTML = html;
+}
+
+function add(item){
+  build.push(item);
+  showBuild();
+}
+
+function serve(){
+  document.getElementById('ding').play();
+  alert(build.map(x=>x[0]).join() == order.join() ? "✅ Correct!" : "❌ Try again");
+  newOrder();
+}
+
+newOrder();
+</script>
+</body>
+</html>
