@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Back to School Shopping Game</title>
+<style>
+  body {
+    margin: 0;
+    font-family: sans-serif;
+    background: #f5f5f5;
+  }
+  #game {
+    position: relative;
+    width: 800px;
+    height: 500px;
+    margin: 20px auto;
+    overflow: hidden;
+    border: 2px solid #333;
+    background-size: cover;
+    background-position: center;
+    background-image: url('my-background.png'); /* <-- Add your image file here */
+  }
+  .character {
+    position: absolute;
+    width: 200px;
+    height: 460px;
+    user-select: none;
+  }
+  .item {
+    position: absolute;
+    width: 80px;
+    height: 80px;
+    user-select: none;
+  }
+  #characterSelect {
+    text-align: center;
+    margin-bottom: 10px;
+  }
+  #scoreboard {
+    text-align: center;
+    font-size: 18px;
+    margin-bottom: 10px;
+  }
+  #levelMessage, #gameOver {
+    display: none;
+    position: absolute;
+    top: 40%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 40px;
+    font-weight: bold;
+    background: rgba(255,255,255,0.9);
+    padding: 20px;
+    border-radius: 10px;
+    border: 2px solid #333;
+    z-index: 10;
+  }
+</style>
+</head>
+<body>
+
+<div id="characterSelect">
+  <h2>Choose Your Character</h2>
+  <button onclick="chooseCharacter('boy.png')">Boy</button>
+  <button onclick="chooseCharacter('girl.png')">Girl</button>
+</div>
+
+<div id="scoreboard">Items Collected: 0 | Level: 1 | Time Left: 20s</div>
+
+<div id="game">
+  <div id="levelMessage"></div>
+  <div id="gameOver"></div>
+</div>
+
+<script>
+  const game = document.getElementById("game");
+  const scoreboard = document.getElementById("scoreboard");
+  const levelMessage = document.getElementById("levelMessage");
+  const gameOverScreen = document.getElementById("gameOver");
+
+  let character = null;
+  let items = [];
+  let collected = 0;
+  let currentLevel = 1;
+  let speed = 5;
+  let timeLeft = 20;
+  let timerInterval;
+  let itemMoveInterval;
+
+  const backgrounds = [
+    "store-background.png",
+    "aisle2.png",
+    "aisle3.png",
+    "aisle4.png"
+  ];
+
+  // Items for each level
+  const itemsPerLevel = [
+    ["backpack.png", "pencil.png", "pen.png", "ruler.png"], // Level 1
+    ["pants.png", "shirt.png", "hoodie.png"],               // Level 2
+    ["notebook.png", "markers.png", "eraser.png", "scissors.png"], // Level 3
+    ["glue.png", "crayons.png", "highlighter.png", "calculator.png"] // Level 4
+  ];
+
+  function chooseCharacter(img) {
+    document.getElementById("characterSelect").style.display = "none";
+
+    character = document.createElement("img");
+    character.src = img;
+    character.className = "character";
+    character.style.left = "20px";
+    character.style.top = "20px";
+    game.appendChild(character);
+
+    startLevel();
+    startGameControls();
+  }
+
+  function startLevel() {
+    collected = 0;
+    items = [];
+    timeLeft = 20; // reset timer
+    updateScoreboard();
+
+    game.style.backgroundImage = `url('${backgrounds[(currentLevel - 1) % backgrounds.length]}')`;
+
+    Array.from(game.querySelectorAll(".item")).forEach(i => i.remove());
+
+    let currentItems = itemsPerLevel[(currentLevel - 1) % itemsPerLevel.length];
+
+    for (let i = 0; i < currentItems.length; i++) {
+      const item = document.createElement("img");
+      item.src = currentItems[i];
+      item.className = "item";
+      item.style.left = Math.random() * (game.clientWidth - 80) + "px";
+      item.style.top = Math.random() * (game.clientHeight - 80) + "px";
+      game.appendChild(item);
+      items.push(item);
+    }
+
+    moveItems(); // start moving the supplies
+    startTimer();
+  }
+
+  function startGameControls() {
+    let x = parseInt(character.style.left);
+    let y = parseInt(character.style.top);
+
+    document.addEventListener("keydown", function(e) {
+      if (!character) return;
+
+      if (e.key === "ArrowUp") y -= speed;
+      if (e.key === "ArrowDown") y += speed;
+      if (e.key === "ArrowLeft") x -= speed;
+      if (e.key === "ArrowRight") x += speed;
+
+      x = Math.max(0, Math.min(game.clientWidth - character.clientWidth, x));
+      y = Math.max(0, Math.min(game.clientHeight - character.clientHeight, y));
+
+      character.style.left = x + "px";
+      character.style.top = y + "px";
+
+      checkCollisions();
+    });
+  }
+
+  function checkCollisions() {
+    const charRect = character.getBoundingClientRect();
+
+    items.forEach((item, index) => {
+      const itemRect = item.getBoundingClientRect();
+      if (!(charRect.right < itemRect.left ||
+            charRect.left > itemRect.right ||
+            charRect.bottom < itemRect.top ||
+            charRect.top > itemRect.bottom)) {
+        if (game.contains(item)) {
+          game.removeChild(item);
+        }
+        items.splice(index, 1);
+        collected++;
+        updateScoreboard();
+
+        if (collected === itemsPerLevel[(currentLevel - 1) % itemsPerLevel.length].length) {
+          clearInterval(timerInterval);
+          clearInterval(itemMoveInterval);
+          showNextLevelMessage();
+        }
+      }
+    });
+  }
+
+  function updateScoreboard() {
+    scoreboard.textContent = `Items Collected: ${collected} | Level: ${currentLevel} | Time Left: ${timeLeft}s`;
+  }
+
+  function startTimer() {
+    clearInterval(timerInterval);
+    timerInterval = setInterval(() => {
+      timeLeft--;
+      updateScoreboard();
+      if (timeLeft <= 0) {
+        clearInterval(timerInterval);
+        clearInterval(itemMoveInterval);
+        showGameOver();
+      }
+    }, 1000);
+  }
+
+  function moveItems() {
+    clearInterval(itemMoveInterval);
+    itemMoveInterval = setInterval(() => {
+      items.forEach(item => {
+        let newX = parseInt(item.style.left) + (Math.random() * 20 - 10);
+        let newY = parseInt(item.style.top) + (Math.random() * 20 - 10);
+
+        newX = Math.max(0, Math.min(game.clientWidth - 80, newX));
+        newY = Math.max(0, Math.min(game.clientHeight - 80, newY));
+
+        item.style.left = newX + "px";
+        item.style.top = newY + "px";
+      });
+    }, 500); // every 0.5 seconds
+  }
+
+  function showNextLevelMessage() {
+    if (currentLevel >= backgrounds.length) {
+      // Game finished
+      gameOverScreen.innerHTML = `
+        🎉 Finished! Good job!<br>
+        <button onclick="restartGame()">Restart</button>
+      `;
+      gameOverScreen.style.display = "block";
+      return;
+    }
+
+    levelMessage.textContent = `Next Level! Level ${currentLevel + 1}`;
+    levelMessage.style.display = "block";
+
+    setTimeout(() => {
+      levelMessage.style.display = "none";
+      currentLevel++;
+      speed += 1;
+      startLevel();
+    }, 2000);
+  }
+
+  function restartGame() {
+    currentLevel = 1;
+    speed = 5;
+    collected = 0;
+    gameOverScreen.style.display = "none";
+    startLevel();
+  }
+
+  function showGameOver() {
+    gameOverScreen.textContent = "⏰ Time’s up! Game Over!";
+    gameOverScreen.style.display = "block";
+  }
+</script>
+
+</body>
+</html>
