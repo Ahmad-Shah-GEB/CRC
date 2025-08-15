@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Flappy Dragon</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: #70c5ce;
+    }
+    canvas {
+      display: block;
+      margin: auto;
+      background: #70c5ce;
+      border: 5px solid black; /* ✅ Black border */
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.5); /* Optional shadow */
+    }
+  </style>
+</head>
+<body>
+<canvas id="gameCanvas" width="400" height="600"></canvas>
+
+<script>
+  const canvas = document.getElementById('gameCanvas');
+  const ctx = canvas.getContext('2d');
+
+  // Images
+  const dragonImg = new Image();
+  dragonImg.src = 'dragon.png';
+
+  const birdImg = new Image();
+  birdImg.src = 'bird3.png';
+
+  const castleImg = new Image();
+  castleImg.src = 'castle.png';
+
+  const flameImg = new Image();
+  flameImg.src = 'fire.png';
+
+  const cloudImg = new Image();
+  cloudImg.src = 'cloud.png'; // ☁️ Cloud image
+
+  // Game constants
+  const gravity = 0.4;
+  const flapStrength = -8;
+  const pipeWidth = 50;
+  const pipeGap = 180;
+  const pipeSpeed = 2;
+  const fireWidth = 100;
+  const fireHeight = 20;
+
+  // Game state
+  let dragon = {
+    x: 50,
+    y: 150,
+    width: 40,
+    height: 40,
+    velocity: 0,
+    isBreathingFire: false,
+    fireTimer: 0
+  };
+
+  let pipes = [];
+  let birds = [];
+  let clouds = [];
+  let score = 0;
+  let bestScore = 0;
+  let gameOver = false;
+  let gameStarted = false;
+
+  function resetGame() {
+    if (score > bestScore) {
+      bestScore = score;
+    }
+
+    dragon.y = 150;
+    dragon.velocity = 0;
+    pipes = [];
+    birds = [];
+    clouds = [];
+    score = 0;
+    gameOver = false;
+    gameStarted = false;
+  }
+
+  function createPipe() {
+    let topHeight = Math.random() * (canvas.height - pipeGap - 100) + 50;
+    pipes.push({
+      x: canvas.width,
+      top: topHeight,
+      bottom: topHeight + pipeGap
+    });
+  }
+
+  function spawnBird() {
+    birds.push({
+      x: canvas.width,
+      y: Math.random() * (canvas.height - 50),
+      width: 30,
+      height: 30,
+      speed: 3,
+      alive: true
+    });
+  }
+
+  function spawnCloud() {
+    clouds.push({
+      x: canvas.width,
+      y: Math.random() * 150,
+      speed: 0.5 + Math.random(),
+      width: 80 + Math.random() * 40,
+      height: 40 + Math.random() * 20
+    });
+  }
+
+  function drawClouds() {
+    clouds.forEach(cloud => {
+      ctx.drawImage(cloudImg, cloud.x, cloud.y, cloud.width, cloud.height);
+    });
+  }
+
+  function updateClouds() {
+    clouds.forEach(cloud => {
+      cloud.x -= cloud.speed;
+    });
+    clouds = clouds.filter(cloud => cloud.x + cloud.width > 0);
+    if (Math.random() < 0.02) {
+      spawnCloud();
+    }
+  }
+
+  function drawDragon() {
+    ctx.drawImage(dragonImg, dragon.x, dragon.y, dragon.width, dragon.height);
+  }
+
+  function drawPipes() {
+    pipes.forEach(pipe => {
+      ctx.save();
+      ctx.translate(pipe.x + pipeWidth / 2, pipe.top);
+      ctx.scale(1, -1);
+      ctx.drawImage(castleImg, -pipeWidth / 2, 0, pipeWidth, pipe.top);
+      ctx.restore();
+
+      ctx.drawImage(castleImg, pipe.x, pipe.bottom, pipeWidth, canvas.height - pipe.bottom);
+    });
+  }
+
+  function drawBirds() {
+    birds.forEach(bird => {
+      if (bird.alive) {
+        ctx.drawImage(birdImg, bird.x, bird.y, bird.width, bird.height);
+      }
+    });
+  }
+
+  function drawFire() {
+    if (dragon.isBreathingFire) {
+      const fireX = dragon.x + dragon.width;
+      const fireY = dragon.y + dragon.height / 4;
+      ctx.drawImage(flameImg, fireX, fireY, fireWidth, fireHeight);
+    }
+  }
+
+  function update() {
+    if (!gameStarted || gameOver) return;
+
+    updateClouds(); // ☁️ Update clouds
+
+    dragon.velocity += gravity;
+    dragon.y += dragon.velocity;
+
+    pipes.forEach(pipe => {
+      pipe.x -= pipeSpeed;
+
+      if (!pipe.scored && pipe.x + pipeWidth < dragon.x) {
+        score++;
+        pipe.scored = true;
+      }
+
+      if (
+        dragon.x < pipe.x + pipeWidth &&
+        dragon.x + dragon.width > pipe.x &&
+        (dragon.y < pipe.top || dragon.y + dragon.height > pipe.bottom)
+      ) {
+        gameOver = true;
+      }
+    });
+
+    pipes = pipes.filter(pipe => pipe.x + pipeWidth > 0);
+
+    birds.forEach(bird => {
+      if (bird.alive) {
+        bird.x -= bird.speed;
+
+        if (
+          dragon.x < bird.x + bird.width &&
+          dragon.x + dragon.width > bird.x &&
+          dragon.y < bird.y + bird.height &&
+          dragon.y + dragon.height > bird.y
+        ) {
+          gameOver = true;
+        }
+
+        if (dragon.isBreathingFire) {
+          const fireX = dragon.x + dragon.width;
+          const fireY = dragon.y + dragon.height / 4;
+          if (
+            fireX < bird.x + bird.width &&
+            fireX + fireWidth > bird.x &&
+            fireY < bird.y + bird.height &&
+            fireY + fireHeight > bird.y
+          ) {
+            bird.alive = false;
+            score += 2;
+          }
+        }
+      }
+    });
+
+    birds = birds.filter(b => b.x + b.width > 0 && b.alive);
+
+    if (dragon.y + dragon.height > canvas.height || dragon.y < 0) {
+      gameOver = true;
+    }
+
+    if (pipes.length === 0 || pipes[pipes.length - 1].x < canvas.width - 200) {
+      createPipe();
+    }
+
+    if (Math.random() < 0.01) {
+      spawnBird();
+    }
+
+    if (dragon.fireTimer > 0) {
+      dragon.fireTimer--;
+    } else {
+      dragon.isBreathingFire = false;
+    }
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    drawClouds(); // ☁️ Draw clouds first
+    drawDragon();
+    drawPipes();
+    drawBirds();
+    drawFire();
+
+    // Score and Best Score
+    ctx.fillStyle = '#fff';
+    ctx.font = '24px Arial';
+    ctx.fillText(`Score: ${score}`, 10, 30);
+    ctx.font = '18px Arial';
+    ctx.fillText(`Best: ${bestScore}`, 10, 55);
+
+    // Instructions
+    if (!gameStarted && !gameOver) {
+      ctx.fillStyle = 'black';
+      ctx.font = '20px Arial';
+      ctx.fillText('Press Space to Flap', 100, 250);
+      ctx.fillText('Press . to Breathe Fire', 90, 280);
+      ctx.fillText('Kill birds for extra points', 80, 310);
+      ctx.fillText('Dont let the birds hit you', 80, 340);
+      ctx.fillText('Press space to start', 100, 370);
+    }
+
+    // Game Over
+    if (gameOver) {
+      ctx.fillStyle = 'red';
+      ctx.font = '36px Arial';
+      ctx.fillText('Game Over!', 100, 300);
+      ctx.font = '20px Arial';
+      ctx.fillText('Press Space or Click to Restart', 70, 340);
+    }
+  }
+
+  function loop() {
+    update();
+    draw();
+    requestAnimationFrame(loop);
+  }
+
+  function flap() {
+    if (gameOver) {
+      resetGame();
+      return;
+    }
+    if (!gameStarted) {
+      gameStarted = true;
+    }
+    dragon.velocity = flapStrength;
+  }
+
+  function breatheFire() {
+    if (gameOver || !gameStarted) return;
+    dragon.isBreathingFire = true;
+    dragon.fireTimer = 20;
+  }
+
+  document.addEventListener('keydown', e => {
+    if (e.code === 'Space') flap();
+    if (e.key === '.') breatheFire();
+  });
+
+  document.addEventListener('mousedown', flap);
+
+  // Load images before starting loop
+  let imagesLoaded = 0;
+  const totalImages = 5; // Was 4, now 5 with cloud
+
+  function checkAllImagesLoaded() {
+    imagesLoaded++;
+    if (imagesLoaded === totalImages) {
+      loop();
+    }
+  }
+
+  dragonImg.onload = checkAllImagesLoaded;
+  birdImg.onload = checkAllImagesLoaded;
+  castleImg.onload = checkAllImagesLoaded;
+  flameImg.onload = checkAllImagesLoaded;
+  cloudImg.onload = checkAllImagesLoaded; // ☁️ Cloud image
+</script>
+</body>
+</html>
