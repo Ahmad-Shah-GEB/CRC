@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Escape the Room</title>
+<style>
+  body { background:#222; margin:0; color:#fff; font-family:sans-serif; text-align:center; }
+  canvas { background:#000; display:block; margin:10px auto; border:3px solid white; }
+  button, input { margin:5px; padding:5px 10px; }
+</style>
+</head>
+<body>
+<h2>Escape the Room</h2>
+<label>Villain size: <input id="villainSize" type="number" value="26" min="10" max="100"></label>
+<input type="file" id="villainImageInput" accept="image/*">
+<button id="pauseBtn">Pause</button>
+<button id="resetBtn">Reset</button>
+<canvas id="game" width="600" height="400"></canvas>
+
+<script>
+const canvas=document.getElementById("game"),ctx=canvas.getContext("2d");
+let player={x:50,y:200,w:20,h:20,s:3};
+let villain={x:500,y:50,w:26,h:26,s:1.8};
+let exit={x:550,y:350,w:30,h:30};
+let keys={}, level=1, obstacles=[], paused=false;
+let villainImg = null;
+
+document.getElementById("villainSize").addEventListener("input",()=>{
+  villain.w=villain.h=+villainSize.value;
+});
+
+document.getElementById("villainImageInput").addEventListener("change",function(e){
+  const file = e.target.files[0];
+  if(file){
+    const img = new Image();
+    img.onload = () => { villainImg = img; };
+    img.src = URL.createObjectURL(file);
+  }
+});
+
+document.addEventListener("keydown",e=>keys[e.key]=true);
+document.addEventListener("keyup",e=>keys[e.key]=false);
+
+document.getElementById("pauseBtn").addEventListener("click",()=>{
+  paused=!paused; pauseBtn.textContent=paused?"Resume":"Pause";
+});
+
+document.getElementById("resetBtn").addEventListener("click",()=>{
+  level = 1;
+  reset();
+});
+
+function rand(a,b){return Math.random()*(b-a)+a;}
+function makeObstacles(n){
+  obstacles=[];
+  for(let i=0;i<n;i++){
+    obstacles.push({x:rand(50,500),y:rand(50,350),w:rand(30,80),h:rand(30,80)});
+  }
+}
+function collide(r1,r2){
+  return r1.x<r2.x+r2.w&&r1.x+r1.w>r2.x&&r1.y<r2.y+r2.h&&r1.y+r1.h>r2.y;
+}
+function reset(){
+  player.x=50;player.y=200;
+  villain.x=500;villain.y=50;
+  villain.s=1.8+0.4*(level-1);
+  makeObstacles(4+level*2);
+}
+function move(e,dx,dy){
+  e.x+=dx;
+  if(obstacles.some(o=>collide(e,o))||e.x<0||e.x+e.w>canvas.width) e.x-=dx;
+  e.y+=dy;
+  if(obstacles.some(o=>collide(e,o))||e.y<0||e.y+e.h>canvas.height) e.y-=dy;
+}
+function update(){
+  if(paused) return;
+  let vx=(keys.a||keys.ArrowLeft?-1:0)+(keys.d||keys.ArrowRight?1:0);
+  let vy=(keys.w||keys.ArrowUp?-1:0)+(keys.s||keys.ArrowDown?1:0);
+  let m=Math.hypot(vx,vy)||1;
+  move(player,vx/m*player.s,vy/m*player.s);
+  let dx=player.x-villain.x, dy=player.y-villain.y, dist=Math.hypot(dx,dy)||1;
+  move(villain,dx/dist*villain.s,dy/dist*villain.s);
+  if(collide(player,exit)){level++;reset();}
+  if(collide(player,villain)){level=Math.max(1,level-1);reset();}
+}
+function draw(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.strokeStyle="white"; ctx.strokeRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle="green"; ctx.fillRect(exit.x,exit.y,exit.w,exit.h);
+  ctx.fillStyle="gray"; obstacles.forEach(o=>ctx.fillRect(o.x,o.y,o.w,o.h));
+  ctx.fillStyle="blue"; ctx.fillRect(player.x,player.y,player.w,player.h);
+  
+  if(villainImg){
+    ctx.drawImage(villainImg, villain.x, villain.y, villain.w, villain.h);
+  } else {
+    ctx.fillStyle="red";
+    ctx.fillRect(villain.x,villain.y,villain.w,villain.h);
+  }
+  
+  ctx.fillStyle="white"; ctx.fillText("Level: "+level,10,15);
+  if(paused){
+    ctx.fillStyle="rgba(0,0,0,0.5)";
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+    ctx.fillStyle="yellow";
+    ctx.font="20px Arial";
+    ctx.fillText("Paused",canvas.width/2-30,canvas.height/2);
+  }
+}
+function loop(){update();draw();requestAnimationFrame(loop);}
+reset(); loop();
+</script>
+</body>
+</html>
