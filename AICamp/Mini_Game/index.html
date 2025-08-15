@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Swimming Fish</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: linear-gradient(to bottom, #00bfff, #1e90ff); /* water background */
+    }
+
+    .aquarium {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    .fish {
+      position: absolute;
+      width: 100px;
+      animation: swim linear infinite;
+    }
+
+    @keyframes swim {
+      0% {
+        transform: translateX(-150px) scaleX(1);
+      }
+      50% {
+        transform: translateX(100vw) scaleX(1);
+      }
+      50.01% {
+        transform: translateX(100vw) scaleX(-1); /* flip fish */
+      }
+      100% {
+        transform: translateX(-150px) scaleX(-1);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="aquarium">
+    <!-- 🐟 Add your fish images below this line -->
+
+    <img src="fish1.png" class="fish" style="top: 100px; animation-duration: 20s;" />
+    <img src="fish2.png" class="fish" style="top: 200px; animation-duration: 25s;" />
+    <img src="fish3.png" class="fish" style="top: 300px; animation-duration: 18s;" />
+
+    <!-- 🐟 Add your fish images above this line -->
+  </div>
+</body>
+</html>
