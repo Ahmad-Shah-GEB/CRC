@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Sophie's Splendid Cake Bakery</title>
+<style>
+  body{font-family:Arial;text-align:center;background:#ffe6f0;margin:0}
+  h1{color:#d63384}
+  .btn{margin:5px;padding:10px 20px;font-size:16px;border:none;background:#ffb3c6;color:#fff;border-radius:8px;cursor:pointer;transition:0.3s}
+  .btn:hover{background:#ff99b8}
+  img.ingredient{height:50px;margin:2px}
+  #extraImages img{height:240px;margin:5px;border-radius:8px;box-shadow:0 2px 5px rgba(0,0,0,0.1)}
+  #musicBtn{position:absolute;top:10px;right:10px}
+
+  /* Start Screen */
+  #startScreen{
+    position:fixed;top:0;left:0;width:100%;height:100%;
+    background:#ffe6f0;display:flex;flex-direction:column;
+    justify-content:center;align-items:center;z-index:10;
+  }
+  #startScreen h1{
+    font-size:2em;margin-bottom:20px;color:#d63384;
+    text-shadow:1px 1px #fff;
+  }
+</style>
+</head>
+<body>
+
+<!-- START SCREEN -->
+<div id="startScreen">
+  <h1>🎂 Welcome to Sophie's Splendid Cake Bakery 🎂</h1>
+  <button class="btn" onclick="startGame()">Start Game</button>
+  <button class="btn" onclick="openHowToPlay()" style="background:#d63384; color:white; border:none; padding:10px 15px; border-radius:8px;">How to Play</button>
+
+  <button class="btn">Customize Bakery</button>
+</div>
+
+<!-- GAME -->
+<div id="game" style="display:none;">
+  <h1>🍰 Cake Bakery</h1>
+  <button id="musicBtn" class="btn" onclick="toggleMusic()">Play Music</button>
+  <audio id="bgMusic" loop>
+    <source src="happy_music.mp3" type="audio/mpeg">
+  </audio>
+
+  <div id="extraImages">
+    <img src="heading_carrot.png" alt="Extra Image 1">
+    <img src="confetti.png" alt="Extra Image 2">
+    <img src="heading_vanilla.png" alt="Extra Image 3">
+  </div>
+  <img src="shopkeeper.png" width="150"><br><br>
+
+  <p id="order">Click "New Order" to start!</p>
+
+  <div>
+    <!-- Bases -->
+    <button class="btn" onclick="add('Base Strawberry','strawberry_base.png')">Base Strawberry</button>
+    <button class="btn" onclick="add('Base Carrot','carrot_base.png')">Base Carrot</button>
+    <button class="btn" onclick="add('Base Chocolate','chocolate_base.png')">Base Chocolate</button>
+    <button class="btn" onclick="add('Base Vanilla','vanilla_base.png')">Base Vanilla</button>
+    <button class="btn" onclick="add('Base Red Velvet','redvelvet_base.png')">Base Red Velvet</button>
+    <br>
+
+    <!-- Frostings -->
+    <button class="btn" onclick="add('Strawberry Frosting','strawberry_frosting.png')">Strawberry Frosting</button>
+    <button class="btn" onclick="add('Vanilla Frosting','vanilla_frosting.png')">Vanilla Frosting</button>
+    <button class="btn" onclick="add('Chocolate Frosting','chocolate_frosting.png')">Chocolate Frosting</button>
+    <br>
+
+    <!-- Toppings -->
+    <button class="btn" onclick="add('Strawberries','strawberries.png')">Strawberries</button>
+    <button class="btn" onclick="add('Whip Cream','whip_cream.png')">Whip Cream</button>
+    <button class="btn" onclick="add('Sprinkles','sprinkles.png')">Sprinkles</button>
+  </div>
+
+  <p>Your Cake:</p>
+  <div id="yourCake">None</div>
+
+  <button class="btn" onclick="check()">Serve Cake</button>
+  <button class="btn" onclick="newOrder()">New Order</button>
+  <p id="result"></p>
+  <p id="feedback"></p>
+  <p id="earnings"></p>
+</div>
+
+<!-- How to Play Popup -->
+<div id="howToPlayModal" style="display:none; position:fixed; top:50%; left:50%;
+transform:translate(-50%, -50%); background:#ffe6f0; padding:20px; border-radius:15px;
+box-shadow:0 0 10px rgba(0,0,0,0.3); text-align:left; width:350px; max-width:90%;">
+  <h2 style="color:#d63384; text-align:center;">How to Play</h2>
+  <p style="color:#333; font-size:14px; line-height:1.4;">
+    Click <b>Start Game</b> to create cakes.<br><br>
+    Basically, when you click <b>"New Order"</b> there will be a random order you will have to recreate below the baker.<br><br>
+    To create the cake, you will have to:
+    <ul style="margin:5px 0 5px 15px; padding:0;">
+      <li>Choose a cake base</li>
+      <li>Choose a frosting</li>
+      <li>Choose a topping</li>
+    </ul>
+    Once you create the cake, hit the <b>"Serve Cake"</b> button and it will tell you "Correct" and leave you a tip!<br><br>
+    Once you're done you will receive your earnings and tip!<br>
+    To reset the order for a new one, just click <b>"New Order"</b>!
+  </p>
+  <div style="text-align:center; margin-top:10px;">
+    <button onclick="closeHowToPlay()" style="background:#d63384; color:white; border:none; padding:8px 12px; border-radius:8px;">Close</button>
+  </div>
+</div>
+
+
+<script>
+let order=[],cake=[],orderCount=0,totalEarnings=0,orderStartTime;
+let bgMusic=document.getElementById("bgMusic"),musicBtn=document.getElementById("musicBtn");
+
+function openHowToPlay(){
+  document.getElementById("howToPlayModal").style.display = "block";
+}
+
+function closeHowToPlay(){
+  document.getElementById("howToPlayModal").style.display = "none";
+}
+
+
+function startGame(){
+  document.getElementById("startScreen").style.display="none";
+  document.getElementById("game").style.display="block";
+}
+
+function toggleMusic(){
+  if(bgMusic.paused){
+    bgMusic.play();
+    musicBtn.textContent="Stop Music";
+  }else{
+    bgMusic.pause();
+    musicBtn.textContent="Play Music";
+  }
+}
+
+function newOrder(){
+  if(orderCount >= 4){
+    let paycheck = 50 + totalEarnings;
+    document.getElementById("order").innerHTML = `Shift complete! Your paycheck is $${paycheck.toFixed(2)}`;
+    orderCount = 0;
+    totalEarnings = 0;
+    return;
+  }
+
+  let opts = [
+    [{n:"Base Strawberry",i:"strawberry_base.png"},{n:"Vanilla Frosting",i:"vanilla_frosting.png"}],
+    [{n:"Base Carrot",i:"carrot_base.png"},{n:"Chocolate Frosting",i:"chocolate_frosting.png"},{n:"Sprinkles",i:"sprinkles.png"}],
+    [{n:"Base Chocolate",i:"chocolate_base.png"},{n:"Strawberry Frosting",i:"strawberry_frosting.png"}],
+    [{n:"Base Red Velvet",i:"redvelvet_base.png"},{n:"Whip Cream",i:"whip_cream.png"},{n:"Strawberries",i:"strawberries.png"}]
+  ];
+
+  order = opts[Math.floor(Math.random()*opts.length)];
+  document.getElementById("order").innerHTML =
+  `<span style="color:hotpink;font-weight:bold">Customer Wants:</span> ` +
+  order.map(x => `<img src="${x.i}" class="ingredient">`).join("");
+
+
+  cake = [];
+  document.getElementById("yourCake").innerHTML = "None";
+  document.getElementById("result").innerHTML = "";
+  document.getElementById("feedback").innerHTML = "";
+  orderStartTime = Date.now();
+}
+
+function add(n,i){
+  cake.push({n,i});
+  document.getElementById("yourCake").innerHTML=
+    cake.map(x=>`<img src="${x.i}" class="ingredient">`).join("");
+}
+
+function check(){
+  let bases = ["strawberry_base.png","carrot_base.png","chocolate_base.png","vanilla_base.png","redvelvet_base.png"];
+  let resultText="",feedbackText="";
+  let correct = JSON.stringify(order)===JSON.stringify(cake);
+  let timeTaken = (Date.now() - orderStartTime) / 1000;
+
+  if (cake.length === 0 || !bases.includes(cake[0].i)) {
+    resultText = "☹️";
+    feedbackText = "You forgot the base!";
+  } else if (correct) {
+    resultText = "✅ Correct!";
+    let tip = 10;
+    if (timeTaken < 10) tip += 5;
+    totalEarnings += tip;
+    feedbackText = `Perfect! Customer loved it. Tip: $${tip}`;
+  } else {
+    resultText = "😋 Yum!";
+    let tip = 5;
+    totalEarnings += tip;
+    feedbackText = `Tasty, but not exactly what they wanted. Tip: $${tip}`;
+  }
+
+  document.getElementById("result").innerHTML = resultText;
+  document.getElementById("feedback").innerHTML = feedbackText;
+
+  orderCount++;
+  document.getElementById("earnings").innerHTML = `Earnings so far: $${(50 + totalEarnings).toFixed(2)}`;
+}
+</script>
+
+</body>
+</html><p id="order"></p>
