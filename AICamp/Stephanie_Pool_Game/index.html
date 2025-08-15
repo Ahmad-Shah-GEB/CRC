@@ -1,0 +1,1072 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Pool Game — Fixed Controls + Shoot Button</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  :root{
+    --bg:#0b2a2f; --felt:#0b6b4e; --rail:#2a2a2a; --text:#e9f7f0; --accent:#ffd60a;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial}
+  .wrap{width:min(980px,96vw);margin:0 auto;padding:16px 12px 28px}
+  .top{display:flex;align-items:center;gap:12px;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap}
+  .left{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  h1{font-size:18px;margin:0}
+  .turn{font-weight:700;padding:6px 10px;border-radius:999px;background:rgba(255,255,255,.08)}
+  .score{font-weight:700}
+  #shootBtn{padding:8px 14px;font-weight:800;border:0;border-radius:8px;background:var(--accent);color:#222;cursor:pointer}
+  #shootBtn:disabled{opacity:.55;cursor:not-allowed}
+  .bar{display:flex;align-items:center;gap:10px;margin:8px 0 10px}
+  .bar label{font-size:13px;opacity:.9;white-space:nowrap}
+  #power{width:220px}
+  canvas{width:100%;height:auto;display:block;background:var(--felt);border-radius:12px;box-shadow:0 16px 40px rgba(0,0,0,.5)}
+  #bots{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+  #bots img{width:62px;height:62px;border-radius:10px;object-fit:cover;border:2px solid transparent;background:#255a50;cursor:pointer}
+  #bots img.selected{border-color:var(--accent)}
+  .hint{font-size:13px;opacity:.85;margin-top:8px}
+</style>
+
+<style>
+#startOverlay {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: rgba(0,0,0,0.85);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+  color: white;
+  z-index: 5000;
+  transition: opacity 0.3s ease;
+  text-align: center;
+}
+#startOverlay.hidden { opacity: 0; pointer-events: none; }
+#startOverlay p {
+  font-size: 18px;
+  max-width: 400px;
+  line-height: 1.4em;
+  margin-top: 10px;
+  color: #ddd;
+}
+#startBtn {
+  margin-top: 20px;
+  padding: 12px 24px;
+  font-size: 20px;
+  background: gold;
+  color: black;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: bold;
+}
+</style>
+
+
+<style>
+.bot-grid {
+  display: flex;
+  gap: 15px;
+  margin-top: 20px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.bot-option {
+  border: 4px solid transparent;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: border-color 0.2s;
+  width: 80px;
+  height: 80px;
+  object-fit: cover;
+}
+.bot-option.selected {
+  border-color: gold;
+}
+.bot-score-img {
+  width: 40px;
+  height: 40px;
+  vertical-align: middle;
+  border-radius: 5px;
+  margin-left: 5px;
+}
+</style>
+
+</head>
+<body>
+
+<div id="startOverlay">
+  <div>🎱 Welcome to Pool Game</div>
+  <p>
+    Click and drag the mouse to aim.<br>
+    Adjust power with the slider.<br>
+    Press the Shoot button to take your shot.<br>
+    Pot all your balls before the bot does!
+  </p>
+
+<div class="bot-grid">
+  <img src="pink_bot.png" alt="Pink Bot" class="bot-option" data-bot="pink">
+  <img src="purple_bot.png" alt="Purple Bot" class="bot-option" data-bot="purple">
+  <img src="blue_bot.png" alt="Blue Bot" class="bot-option" data-bot="blue">
+  <img src="red_bot.png" alt="red Bot" class="bot-option" data-bot="red">
+  <img src="green_bot.png" alt="Green Bot" class="bot-option" data-bot="green">
+</div>
+
+  <button id="startBtn" disabled>Play</button>
+</div>
+
+  <div class="wrap">
+    <div class="top">
+      <div class="left">
+        <h1>Pool Game</h1>
+        <div class="turn" id="turnBadge">Turn: Player</div>
+        <div class="score">You: <span id="ps">0</span> | Bot: <span id="bs">0</span></div>
+      </div>
+      <button id="shootBtn" disabled>Shoot</button>
+    </div>
+
+    <div class="bar">
+      <label for="power">Power</label>
+      <input type="range" id="power" min="5" max="100" value="60" />
+      <span id="powerVal">60%</span>
+    </div>
+
+    <canvas id="table" width="920" height="520"></canvas>
+
+    <div id="bots" aria-label="Choose Bot Difficulty">
+      <img src="pink_bot.png" alt="Pink Bot" class="bot-option" data-bot="pink">
+      <img src="purple_bot.png" alt="Purple Bot" class="bot-option" data-bot="purple">
+      <img src="blue_bot.png" alt="Blue Bot" class="bot-option" data-bot="blue">
+      <img src="red_bot.png" alt="red Bot" class="bot-option" data-bot="red">
+      <img src="green_bot.png" alt="Green Bot" class="bot-option" data-bot="green">
+
+    </div>
+
+    <div class="hint">Click & drag on the table to aim. Adjust power with the slider. Click <b>Shoot</b> to take the shot.</div>
+  </div>
+
+<script>
+/* ===== Canvas & Table Setup ===== */
+const C = document.getElementById('table');
+const X = C.getContext('2d');
+const W = C.width, H = C.height;
+
+const M = 42; // table margin (rails)
+const PW = W - M*2, PH = H - M*2;
+const BALL_R = 10;
+const POCKET_R = 24;
+
+const FRICTION = 0.992;
+const STOP = 0.02;
+
+const PTS = [
+  [M, M],
+  [M+PW/2, M-2],
+  [M+PW, M],
+  [M, M+PH],
+  [M+PW/2, M+PH+2],
+  [M+PW, M+PH]
+];
+
+/* ===== UI Elements ===== */
+const shootBtn = document.getElementById('shootBtn');
+const powerSlider = document.getElementById('power');
+const powerVal = document.getElementById('powerVal');
+const ps = document.getElementById('ps');
+const bs = document.getElementById('bs');
+const turnBadge = document.getElementById('turnBadge');
+
+/* ===== Game State ===== */
+let balls = [];
+let turn = 'player';
+let playerScore = 0, botScore = 0;
+
+let aiming = false;          // whether to draw the player's cue
+let draggingAim = false;     // mouse left button is down to rotate aim
+let aim = { angle: 0, pull: 60 }; // pull maps from slider power
+
+let botLevel = 1;            // 1..5
+let botStick = null;         // {angle, pull, t} for visualizing bot cue
+
+/* ===== Helpers ===== */
+function cueBall(){ return balls.find(b => b.isCue && !b.pocketed); }
+function allStopped(){ return balls.every(b => b.pocketed || (Math.abs(b.vx) < STOP && Math.abs(b.vy) < STOP)); }
+function setTurn(next){
+  turn = next;
+  turnBadge.textContent = 'Turn: ' + (turn === 'player' ? 'Player' : 'Bot');
+  if (turn === 'player'){
+    aiming = true;
+    shootBtn.disabled = false;
+  } else {
+    // lock player controls immediately
+    aiming = false;
+    draggingAim = false;
+    shootBtn.disabled = true;
+  }
+}
+
+/* ===== Rack ===== */
+function rack(){
+  balls.length = 0;
+  // cue ball
+  balls.push({x:M+PW*0.25, y:M+PH/2, vx:0, vy:0, color:'#fff', isCue:true, pocketed:false});
+  // simple diamond of 9 balls
+  const cols = ['#ff3b30','#ff9500','#ffd60a','#34c759','#5ac8fa','#007aff','#5856d6','#af52de','#ff2d55'];
+  let k=0, bx = M+PW*0.68, by = M+PH/2 - BALL_R*4;
+  for (let r=0;r<4;r++){
+    for (let c=0;c<=r;c++){
+      balls.push({x:bx+r*(BALL_R*2+2), y:by+c*(BALL_R*2+2), vx:0, vy:0, color:cols[k++%cols.length], isCue:false, pocketed:false});
+      if (k>=9) break;
+    }
+    if (k>=9) break;
+  }
+  // fresh start = player turn
+  setTurn('player');
+  aim.pull = parseInt(powerSlider.value,10);
+  aim.angle = 0;
+}
+rack();
+
+/* ===== Drawing ===== */
+function drawTable(){
+  X.clearRect(0,0,W,H);
+  // rails
+  X.fillStyle = '#2a2a2a';
+  X.fillRect(M-18, M-18, PW+36, PH+36);
+  // felt
+  X.fillStyle = '#0b6b4e';
+  X.fillRect(M, M, PW, PH);
+  // pockets
+  X.fillStyle = '#000';
+  for (const [px,py] of PTS){
+    X.beginPath(); X.arc(px,py,POCKET_R,0,Math.PI*2); X.fill();
+  }
+}
+
+function drawBalls(){
+  for (const b of balls){
+    if (b.pocketed) continue;
+    // soft shadow
+    X.beginPath(); X.fillStyle='rgba(0,0,0,.25)';
+    X.ellipse(b.x+3,b.y+6,BALL_R,BALL_R*0.6,0,0,Math.PI*2); X.fill();
+    // ball
+    X.beginPath(); X.fillStyle=b.color;
+    X.arc(b.x,b.y,BALL_R,0,Math.PI*2); X.fill();
+  }
+}
+
+function rrect(x,y,w,h,r){ X.beginPath(); X.moveTo(x+r,y); X.arcTo(x+w,y,x+w,y+h,r); X.arcTo(x+w,y+h,x,y+h,r); X.arcTo(x,y+h,x,y,r); X.arcTo(x,y,x+w,y,r); X.closePath(); }
+
+function drawCue(angle, pull){
+  const cb = cueBall(); if (!cb) return;
+  // guideline
+  X.save();
+  X.strokeStyle = 'rgba(255,255,255,.35)';
+  X.lineWidth = 2;
+  X.setLineDash([8,8]);
+  X.beginPath();
+  X.moveTo(cb.x, cb.y);
+  X.lineTo(cb.x + Math.cos(angle)*260, cb.y + Math.sin(angle)*260);
+  X.stroke();
+  X.restore();
+
+  // stick
+  const stickLen = 220, stickW = 6;
+  const pullBack = Math.min(110, Math.max(0, pull));
+  const tipOffset = BALL_R + 100 - pullBack; // behind ball as you increase power
+
+  const cx = Math.cos(angle), sy = Math.sin(angle);
+  const tipX = cb.x - cx*tipOffset, tipY = cb.y - sy*tipOffset;
+
+  X.save();
+  X.translate(tipX, tipY);
+  X.rotate(angle);
+
+  const g = X.createLinearGradient(0,0,-stickLen,0);
+  g.addColorStop(0,'#f5d7a0'); g.addColorStop(.9,'#8b5a2b'); g.addColorStop(1,'#6b3f21');
+  X.fillStyle = g;
+  rrect(-stickLen, -stickW/2, stickLen, stickW, 3);
+  X.fill();
+
+  // chalk tip
+  X.fillStyle = '#eae7e1';
+  rrect(-4, -stickW/2, 4, stickW, 2);
+  X.fill();
+  X.restore();
+}
+
+/* ===== Physics ===== */
+function step(){
+  // move
+  for (const b of balls){ if (!b.pocketed){ b.x += b.vx; b.y += b.vy; } }
+  // cushions
+  for (const b of balls){
+    if (b.pocketed) continue;
+    if (b.x - BALL_R < M){ b.x = M + BALL_R; b.vx *= -0.9; }
+    if (b.x + BALL_R > M+PW){ b.x = M+PW - BALL_R; b.vx *= -0.9; }
+    if (b.y - BALL_R < M){ b.y = M + BALL_R; b.vy *= -0.9; }
+    if (b.y + BALL_R > M+PH){ b.y = M+PH - BALL_R; b.vy *= -0.9; }
+  }
+  // collisions
+  for (let i=0;i<balls.length;i++){
+    const A = balls[i]; if (A.pocketed) continue;
+    for (let j=i+1;j<balls.length;j++){
+      const B = balls[j]; if (B.pocketed) continue;
+      const dx = B.x - A.x, dy = B.y - A.y;
+      const d2 = dx*dx + dy*dy, min = BALL_R*2;
+      if (d2>0 && d2 < min*min){
+        const d = Math.sqrt(d2) || 0.0001;
+        const nx = dx/d, ny = dy/d;
+        // separate
+        const overlap = (min - d)/2;
+        A.x -= nx*overlap; A.y -= ny*overlap;
+        B.x += nx*overlap; B.y += ny*overlap;
+        // velocity exchange on normal
+        const dvx = B.vx - A.vx, dvy = B.vy - A.vy;
+        const rel = dvx*nx + dvy*ny;
+        if (rel < 0){
+          const imp = -rel;
+          A.vx -= imp*nx; A.vy -= imp*ny;
+          B.vx += imp*nx; B.vy += imp*ny;
+        }
+      }
+    }
+  }
+  // pockets & scoring
+  for (const b of balls){
+    if (b.pocketed) continue;
+    for (const [px,py] of PTS){
+      const dx=b.x-px, dy=b.y-py;
+      if (dx*dx + dy*dy < (POCKET_R-5)*(POCKET_R-5)){
+        b.pocketed = true; b.vx = b.vy = 0;
+        if (b.isCue){
+          // respot cue after a moment
+          setTimeout(()=>{
+            b.pocketed = false;
+            b.x = M+PW*0.25; b.y = M+PH/2;
+            b.vx = b.vy = 0;
+          }, 500);
+        } else {
+          if (turn==='player'){ playerScore++; ps.textContent = playerScore; }
+          else { botScore++; bs.textContent = botScore; }
+        }
+        break;
+      }
+    }
+  }
+  // friction & stop
+  for (const b of balls){
+    if (b.pocketed) continue;
+    b.vx *= FRICTION; b.vy *= FRICTION;
+    if (Math.hypot(b.vx,b.vy) < STOP){ b.vx = 0; b.vy = 0; }
+  }
+}
+
+/* ===== Input (Player Only) ===== */
+C.addEventListener('mousedown', (e)=>{
+  if (turn !== 'player') return;
+  if (!allStopped()) return;
+  const cb = cueBall(); if (!cb) return;
+  if (e.button !== 0) return; // left click only
+  draggingAim = true;
+  aiming = true;
+  shootBtn.disabled = false;
+  // set angle immediately
+  const r = C.getBoundingClientRect();
+  const mx = e.clientX - r.left, my = e.clientY - r.top;
+  aim.angle = Math.atan2(my - cb.y, mx - cb.x);
+});
+
+C.addEventListener('mousemove', (e)=>{
+  if (turn !== 'player') return;
+  if (!draggingAim) return;
+  const cb = cueBall(); if (!cb) return;
+  const r = C.getBoundingClientRect();
+  const mx = e.clientX - r.left, my = e.clientY - r.top;
+  aim.angle = Math.atan2(my - cb.y, mx - cb.x);
+});
+
+window.addEventListener('mouseup', ()=>{
+  draggingAim = false;
+});
+
+/* Power slider (no right-click needed) */
+powerSlider.addEventListener('input', ()=>{
+  powerVal.textContent = powerSlider.value + '%';
+  aim.pull = parseInt(powerSlider.value,10);
+});
+
+/* Shoot button */
+shootBtn.addEventListener('click', ()=>{
+  if (turn !== 'player') return;
+  if (!allStopped()) return;
+  const cb = cueBall(); if (!cb) return;
+
+  // Map power (5..100) to speed
+  const p = Math.max(5, Math.min(100, parseInt(powerSlider.value,10)));
+  const speed = (p/100) * 10.0; // max speed tuning
+
+  // Hide stick BEFORE we move
+  aiming = false;
+  draggingAim = false;
+  shootBtn.disabled = true;
+
+  cb.vx = Math.cos(aim.angle) * speed;
+  cb.vy = Math.sin(aim.angle) * speed;
+});
+
+/* ===== Bot Turn ===== */
+function botTakeShot(){
+  const cb = cueBall(); if (!cb){ setTurn('player'); return; }
+  const targets = balls.filter(b => !b.isCue && !b.pocketed);
+  if (targets.length === 0){ setTurn('player'); return; }
+
+  // choose nearest target to cue ball
+  targets.sort((a,b)=> (a.x-cb.x)**2 + (a.y-cb.y)**2 - ((b.x-cb.x)**2 + (b.y-cb.y)**2));
+  const t = targets[0];
+
+  let ang = Math.atan2(t.y - cb.y, t.x - cb.x);
+  // difficulty adds small aim error
+  const maxError = (6 - botLevel) * 0.08; // easier bot = more error
+  ang += (Math.random()*2 - 1) * maxError;
+
+  // show bot's stick briefly
+  botStick = {angle: ang, pull: 70, t: 0};
+  setTimeout(()=>{
+    botStick = null;
+    const base = 7.5;
+    const power = base + (botLevel-1)*0.5; // stronger for higher level
+    cb.vx = Math.cos(ang) * power;
+    cb.vy = Math.sin(ang) * power;
+  }, 650);
+}
+
+/* ===== Loops ===== */
+let wasMoving = false;
+
+function update(){
+  step();
+
+  const moving = !allStopped();
+  if (!moving && wasMoving){
+    // a shot just ended
+    if (turn === 'player'){
+      setTurn('bot');
+      setTimeout(()=>{ if (turn==='bot' && allStopped()) botTakeShot(); }, 350);
+    } else {
+      setTurn('player');
+    }
+  }
+  wasMoving = moving;
+
+  requestAnimationFrame(update);
+}
+
+function render(){
+  drawTable();
+  drawBalls();
+
+  // draw player's cue only when it's their turn & balls are stopped
+  if (turn === 'player' && allStopped() && aiming){
+    drawCue(aim.angle, aim.pull);
+  }
+
+  // draw bot cue (visual only)
+  if (botStick){
+    drawCue(botStick.angle, botStick.pull);
+    botStick.t += 1;
+    botStick.pull = 70 + Math.sin(botStick.t * 0.08) * 10;
+  }
+  requestAnimationFrame(render);
+}
+
+/* ===== Bot Listeners ===== */
+document.querySelectorAll('#bots img').forEach(img=>{
+  img.addEventListener('click', ()=>{
+    document.querySelectorAll('#bots img').forEach(n=>n.classList.remove('selected'));
+    img.classList.add('selected');
+    botLevel = parseInt(img.dataset.level,10) || 1;
+  });
+});
+
+/* Start loops */
+update();
+render();
+</script>
+
+
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+  const overlay = document.getElementById('startOverlay');
+  const startBtn = document.getElementById('startBtn');
+  const botOptions = document.querySelectorAll('.bot-option');
+  let gameStarted = false;
+  let selectedBot = null;
+
+  botOptions.forEach(opt => {
+    opt.addEventListener('click', () => {
+      botOptions.forEach(o => o.classList.remove('selected'));
+      opt.classList.add('selected');
+      selectedBot = opt.dataset.bot;
+      startBtn.disabled = false;
+    });
+  });
+
+  const originalRack = rack;
+  rack = function(){
+    if (!gameStarted) return;
+    return originalRack();
+  };
+
+  function startGame(){
+    if (!selectedBot) return;
+    gameStarted = true;
+
+    // Set bot difficulty
+    if (selectedBot === 'pink') {
+      window.botDifficulty = 'easy';
+    } else if (selectedBot === 'green') {
+      window.botDifficulty = 'hard';
+    } else {
+      window.botDifficulty = 'medium';
+    }
+
+    // Show bot image next to score
+    const botScoreSpan = document.getElementById('bs');
+    if (botScoreSpan) {
+      const img = document.createElement('img');
+      img.src = selectedBot + "_bot.png";
+      img.className = "bot-score-img";
+      botScoreSpan.parentNode.insertBefore(img, botScoreSpan.nextSibling);
+    }
+</body>
+</html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Pool Game — Fixed Controls + Shoot Button</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  :root{
+    --bg:#0b2a2f; --felt:#0b6b4e; --rail:#2a2a2a; --text:#e9f7f0;
+--accent:#ffd60a;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:system-
+ui,-apple-system,Segoe UI,Roboto,Arial}
+  .wrap{width:min(980px,96vw);margin:0 auto;padding:16px 12px 28px}
+  .top{display:flex;align-items:center;gap:12px;justify-content:space-
+between;margin-bottom:8px;flex-wrap:wrap}
+  .left{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  h1{font-size:18px;margin:0}
+  .turn{font-weight:700;padding:6px 10px;border-
+radius:999px;background:rgba(255,255,255,.08)}
+  .score{font-weight:700}
+  #shootBtn{padding:8px 14px;font-weight:800;border:0;border-
+radius:8px;background:var(--accent);color:#222;cursor:pointer}
+  #shootBtn:disabled{opacity:.55;cursor:not-allowed}
+  .bar{display:flex;align-items:center;gap:10px;margin:8px 0 10px}
+  .bar label{font-size:13px;opacity:.9;white-space:nowrap}
+  #power{width:220px}
+  canvas{width:100%;height:auto;display:block;background:var(--felt);border-
+radius:12px;box-shadow:0 16px 40px rgba(0,0,0,.5)}
+  #bots{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+  #bots img{width:62px;height:62px;border-radius:10px;object-
+fit:cover;border:2px solid transparent;background:#255a50;cursor:pointer}
+  #bots img.selected{border-color:var(--accent)}
+  .hint{font-size:13px;opacity:.85;margin-top:8px}
+</style>
+
+<style>
+#startOverlay {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: rgba(0,0,0,0.85);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+  color: white;
+  z-index: 5000;
+  transition: opacity 0.3s ease;
+  text-align: center;
+}
+#startOverlay.hidden { opacity: 0; pointer-events: none; }
+#startOverlay p {
+  font-size: 18px;
+  max-width: 400px;
+  line-height: 1.4em;
+  margin-top: 10px;
+  color: #ddd;
+}
+#startBtn {
+  margin-top: 20px;
+  padding: 12px 24px;
+  font-size: 20px;
+  background: gold;
+  color: black;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: bold;
+}
+</style>
+
+<style>
+.bot-grid {
+  display: flex;
+  gap: 15px;
+  margin-top: 20px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.bot-option {
+  border: 4px solid transparent;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: border-color 0.2s;
+  width: 80px;
+  height: 80px;
+  object-fit: cover;
+}
+.bot-option.selected {
+  border-color: gold;
+}
+.bot-score-img {
+  width: 40px;
+  height: 40px;
+  vertical-align: middle;
+  border-radius: 5px;
+  margin-left: 5px;
+}
+</style>
+
+</head>
+<body>
+
+<div id="startOverlay">
+  <div>🎱 Welcome to Pool Game</div>
+  <p>
+    Click and drag the mouse to aim.<br>
+    Adjust power with the slider.<br>
+    Press the Shoot button to take your shot.<br>
+    Pot all your balls before the bot does!
+  </p>
+
+  <div class="bot-grid">
+    <img src="pink_bot.png" alt="Pink Bot" class="bot-option" data-bot="pink">
+    <img src="purple_bot.png" alt="Purple Bot" class="bot-option" data-bot="purple">
+    <img src="blue_bot.png" alt="Blue Bot" class="bot-option" data-bot="blue">
+    <img src="Red_bot.png" alt="Red Bot" class="bot-option" data-bot="Red">
+    <img src="green_bot.png" alt="Green Bot" class="bot-option" data-bot="green">
+  </div>
+
+
+  <button id="startBtn" disabled>Play</button>
+</div>
+
+  <div class="wrap">
+    <div class="top">
+      <div class="left">
+        <h1>Pool Game</h1>
+        <div class="turn" id="turnBadge">Turn: Player</div>
+        <div class="score">You: <span id="ps">0</span> | Bot: <span id="bs">0</span></div>
+      </div>
+      <button id="shootBtn" disabled>Shoot</button>
+    </div>
+
+    <div class="bar">
+      <label for="power">Power</label>
+      <input type="range" id="power" min="5" max="100" value="60" />
+      <span id="powerVal">60%</span>
+    </div>
+
+    <canvas id="table" width="920" height="520"></canvas>
+
+    <div id="bots" aria-label="Choose Bot Difficulty">
+    <img src="pink_bot.png" data-level="1" class="selected" alt="Pink Bot">
+    <img src="purple_bot.png" data-level="2" alt="Purple Bot">
+    <img src="blue_bot.png" data-level="3" alt="Blue Bot">
+    <img src="red_bot.png" data-level="4" alt="Red Bot">
+    <img src="green_bot.png" data-level="5" alt="Green Bot">
+  </div>
+
+
+    <div class="hint">Click & drag on the table to aim. Adjust power with the slider. Click <b>Shoot</b> to take the shot.</div>
+  </div>
+
+<script>
+/* ===== Canvas & Table Setup ===== */
+const C = document.getElementById('table');
+const X = C.getContext('2d');
+const W = C.width, H = C.height;
+
+const M = 42; // table margin (rails)
+const PW = W - M*2, PH = H - M*2;
+const BALL_R = 10;
+const POCKET_R = 24;
+
+const FRICTION = 0.992;
+const STOP = 0.02;
+
+const PTS = [
+  [M, M],
+  [M+PW/2, M-2],
+  [M+PW, M],
+  [M, M+PH],
+  [M+PW/2, M+PH+2],
+  [M+PW, M+PH]
+];
+
+/* ===== UI Elements ===== */
+const shootBtn = document.getElementById('shootBtn');
+const powerSlider = document.getElementById('power');
+const powerVal = document.getElementById('powerVal');
+const ps = document.getElementById('ps');
+const bs = document.getElementById('bs');
+const turnBadge = document.getElementById('turnBadge');
+
+/* ===== Game State ===== */
+let balls = [];
+let turn = 'player';
+let playerScore = 0, botScore = 0;
+
+let aiming = false;          // whether to draw the player's cue
+let draggingAim = false;     // mouse left button is down to rotate aim
+let aim = { angle: 0, pull: 60 }; // pull maps from slider power
+
+let botLevel = 1;            // 1..5
+let botStick = null;         // {angle, pull, t} for visualizing bot cue
+
+/* ===== Helpers ===== */
+function cueBall(){ return balls.find(b => b.isCue && !b.pocketed); }
+function allStopped(){ return balls.every(b => b.pocketed || (Math.abs(b.vx) <
+STOP && Math.abs(b.vy) < STOP)); }
+function setTurn(next){
+  turn = next;
+  turnBadge.textContent = 'Turn: ' + (turn === 'player' ? 'Player' : 'Bot');
+  if (turn === 'player'){
+    aiming = true;
+    shootBtn.disabled = false;
+  } else {
+    // lock player controls immediately
+    aiming = false;
+    draggingAim = false;
+    shootBtn.disabled = true;
+  }
+}
+
+/* ===== Rack ===== */
+function rack(){
+  balls.length = 0;
+  // cue ball
+  balls.push({x:M+PW*0.25, y:M+PH/2, vx:0, vy:0, color:'#fff', isCue:true,
+pocketed:false});
+  // simple diamond of 9 balls
+  const cols = ['#ff3b30','#ff9500','#ffd60a','#34c759','#5ac8fa','#007aff','#58
+56d6','#af52de','#ff2d55'];
+  let k=0, bx = M+PW*0.68, by = M+PH/2 - BALL_R*4;
+  for (let r=0;r<4;r++){
+    for (let c=0;c<=r;c++){
+      balls.push({x:bx+r*(BALL_R*2+2), y:by+c*(BALL_R*2+2), vx:0, vy:0,
+color:cols[k++%cols.length], isCue:false, pocketed:false});
+      if (k>=9) break;
+    }
+    if (k>=9) break;
+  }
+  // fresh start = player turn
+  setTurn('player');
+  aim.pull = parseInt(powerSlider.value,10);
+  aim.angle = 0;
+}
+rack();
+
+/* ===== Drawing ===== */
+function drawTable(){
+  X.clearRect(0,0,W,H);
+  // rails
+  X.fillStyle = '#2a2a2a';
+  X.fillRect(M-18, M-18, PW+36, PH+36);
+  // felt
+  X.fillStyle = '#0b6b4e';
+  X.fillRect(M, M, PW, PH);
+  // pockets
+  X.fillStyle = '#000';
+  for (const [px,py] of PTS){
+    X.beginPath(); X.arc(px,py,POCKET_R,0,Math.PI*2); X.fill();
+  }
+}
+
+function drawBalls(){
+  for (const b of balls){
+    if (b.pocketed) continue;
+    // soft shadow
+    X.beginPath(); X.fillStyle='rgba(0,0,0,.25)';
+    X.ellipse(b.x+3,b.y+6,BALL_R,BALL_R*0.6,0,0,Math.PI*2); X.fill();
+    // ball
+    X.beginPath(); X.fillStyle=b.color;
+    X.arc(b.x,b.y,BALL_R,0,Math.PI*2); X.fill();
+  }
+}
+
+function rrect(x,y,w,h,r){ X.beginPath(); X.moveTo(x+r,y);
+X.arcTo(x+w,y,x+w,y+h,r); X.arcTo(x+w,y+h,x,y+h,r); X.arcTo(x,y+h,x,y,r);
+X.arcTo(x,y,x+w,y,r); X.closePath(); }
+
+function drawCue(angle, pull){
+  const cb = cueBall(); if (!cb) return;
+  // guideline
+  X.save();
+  X.strokeStyle = 'rgba(255,255,255,.35)';
+  X.lineWidth = 2;
+  X.setLineDash([8,8]);
+  X.beginPath();
+  X.moveTo(cb.x, cb.y);
+  X.lineTo(cb.x + Math.cos(angle)*260, cb.y + Math.sin(angle)*260);
+  X.stroke();
+  X.restore();
+
+  // stick
+  const stickLen = 220, stickW = 6;
+  const pullBack = Math.min(110, Math.max(0, pull));
+  const tipOffset = BALL_R + 2 - pullBack; // behind ball as you increase power
+
+  const cx = Math.cos(angle), sy = Math.sin(angle);
+  const tipX = cb.x - cx*tipOffset, tipY = cb.y - sy*tipOffset;
+
+  X.save();
+  X.translate(tipX, tipY);
+  X.rotate(angle);
+
+  const g = X.createLinearGradient(0,0,-stickLen,0);
+  g.addColorStop(0,'#f5d7a0'); g.addColorStop(.9,'#8b5a2b');
+  g.addColorStop(1,'#6b3f21');
+  X.fillStyle = g;
+  rrect(-stickLen, -stickW/2, stickLen, stickW, 3);
+  X.fill();
+
+  // chalk tip
+  X.fillStyle = '#eae7e1';
+  rrect(-4, -stickW/2, 4, stickW, 2);
+  X.fill();
+  X.restore();
+}
+
+/* ===== Physics ===== */
+function step(){
+  // move balls (move each ball by its velocity)
+  for (const b of balls){
+    if (b.pocketed) continue;
+    b.x += b.vx;
+    b.y += b.vy;
+    // friction
+    b.vx *= FRICTION;
+    b.vy *= FRICTION;
+  }
+  // collisions (very simplified)
+  // each ball to rail
+  for (const b of balls){
+    if (b.pocketed) continue;
+    // left/right rail
+    if (b.x - BALL_R < M){
+      b.vx = Math.abs(b.vx);
+    }
+    if (b.x + BALL_R > M+PW){
+      b.vx = -Math.abs(b.vx);
+    }
+    // top/bottom rail
+    if (b.y - BALL_R < M){
+      b.vy = Math.abs(b.vy);
+    }
+    if (b.y + BALL_R > M+PH){
+      b.vy = -Math.abs(b.vy);
+    }
+  }
+  // collisions ball-to-ball
+  for (let i=0;i<balls.length;i++){
+    const b1 = balls[i];
+    if (b1.pocketed) continue;
+    for (let j=i+1;j<balls.length;j++){
+      const b2 = balls[j];
+      if (b2.pocketed) continue;
+      const dx = b2.x - b1.x;
+      const dy = b2.y - b1.y;
+      const dist = Math.hypot(dx, dy);
+      if (dist < BALL_R*2){
+        // simple elastic collision: swap velocities
+        [b1.vx, b2.vx] = [b2.vx, b1.vx];
+        [b1.vy, b2.vy] = [b2.vy, b1.vy];
+      }
+    }
+  }
+  // check pockets
+  for (const b of balls){
+    if (b.pocketed) continue;
+    for (const [px,py] of PTS){
+      const d = Math.hypot(b.x - px, b.y - py);
+      if (d < POCKET_R){
+        b.pocketed = true;
+        // increment scores
+        if (b.isCue){
+          // usually you lose if cue ball in pocket
+        }
+        if (!b.isCue){
+          if (turn === 'player'){
+            playerScore++;
+            ps.textContent = playerScore;
+          } else {
+            botScore++;
+            bs.textContent = botScore;
+          }
+        }
+        break;
+      }
+    }
+  }
+}
+
+/* ===== Bot Turn ===== */
+function botTakeShot(){
+  const cb = cueBall(); if (!cb){ setTurn('player'); return; }
+  const targets = balls.filter(b => !b.isCue && !b.pocketed);
+  if (targets.length === 0){ setTurn('player'); return; }
+
+  // choose nearest target to cue ball
+  targets.sort((a,b)=> (a.x-cb.x)**2 + (a.y-cb.y)**2 - ((b.x-cb.x)**2 + (b.y-cb.y)**2));
+  const t = targets[0];
+
+  let ang = Math.atan2(t.y - cb.y, t.x - cb.x);
+  // difficulty adds small aim error
+  const maxError = (6 - botLevel) * 0.08; // easier bot = more error
+  ang += (Math.random()*2 - 1) * maxError;
+
+  // show bot's stick briefly
+  botStick = {angle: ang, pull: 70, t: 0};
+  setTimeout(()=>{
+    botStick = null;
+    const base = 7.5;
+    const power = base + (botLevel-1)*0.5; // stronger for higher level
+    cb.vx = Math.cos(ang) * power;
+    cb.vy = Math.sin(ang) * power;
+  }, 650);
+}
+
+/* ===== Loops ===== */
+let wasMoving = false;
+
+function update(){
+  step();
+
+  const moving = !allStopped();
+  if (!moving && wasMoving){
+    // a shot just ended
+    if (turn === 'player'){
+      setTurn('bot');
+      setTimeout(()=>{ if (turn==='bot' && allStopped()) botTakeShot(); }, 350);
+    } else {
+      setTurn('player');
+    }
+  }
+  wasMoving = moving;
+
+  requestAnimationFrame(update);
+}
+
+function render(){
+  drawTable();
+  drawBalls();
+
+  // draw player's cue only when it's their turn & balls are stopped
+  if (turn === 'player' && allStopped() && aiming){
+    drawCue(aim.angle, aim.pull);
+  }
+
+  // draw bot cue (visual only)
+  if (botStick){
+    drawCue(botStick.angle, botStick.pull);
+    botStick.t += 1;
+    botStick.pull = 70 + Math.sin(botStick.t * 0.08) * 10;
+  }
+  requestAnimationFrame(render);
+}
+
+/* ===== Bot Listeners ===== */
+document.querySelectorAll('#bots img').forEach(img=>{
+  img.addEventListener('click', ()=>{
+    document.querySelectorAll('#bots img').forEach(n=>n.classList.remove('selected'));
+    img.classList.add('selected');
+    botLevel = parseInt(img.dataset.level,10) || 1;
+  });
+});
+
+/* Start loops */
+update();
+render();
+</script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+  const overlay = document.getElementById('startOverlay');
+  const startBtn = document.getElementById('startBtn');
+  const botOptions = document.querySelectorAll('.bot-option');
+  let gameStarted = false;
+  let selectedBot = null;
+
+  botOptions.forEach(opt => {
+    opt.addEventListener('click', () => {
+      botOptions.forEach(o => o.classList.remove('selected'));
+      opt.classList.add('selected');
+      selectedBot = opt.dataset.bot;
+      startBtn.disabled = false;
+    });
+  });
+
+  const originalRack = rack;
+  rack = function(){
+    if (!gameStarted) return;
+    return originalRack();
+  };
+
+  function startGame(){
+    if (!selectedBot) return;
+    gameStarted = true;
+
+    // Set bot difficulty
+    if (selectedBot === 'pink') {
+      window.botDifficulty = 'easy';
+    } else if (selectedBot === 'green') {
+      window.botDifficulty = 'hard';
+    } else {
+      window.botDifficulty = 'medium';
+    }
+
+    // Show bot image next to score
+    const botScoreSpan = document.getElementById('bs');
+    if (botScoreSpan) {
+      const img = document.createElement('img');
+      const selectedElem = document.querySelector(`.bot-option[data-bot="${selectedBot}"]`);
+      if (selectedElem) {
+        img.src = selectedElem.src;
+      }
+      img.className = "bot-score-img";
+      botScoreSpan.parentNode.insertBefore(img, botScoreSpan.nextSibling);
+    }
+
+    originalRack();
+    overlay.classList.add('hidden');
+    setTimeout(()=> overlay.remove(), 300);
+  }
+
+  startBtn.addEventListener('click', startGame);
+});
+</script>
+
+
+</body>
+</html>
