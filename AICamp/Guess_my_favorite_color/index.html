@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Guess My Favorite Color 🎀👑</title>
+<style>
+  body {
+    font-family: "Apple Chancery", cursive;
+    text-align: center;
+    padding: 20px;
+    background:
+      linear-gradient(135deg, rgba(255,182,193,0.85), rgba(255,240,245,0.85)),
+      url('https://upload.wikimedia.org/wikipedia/commons/2/24/Pink_cherry_blossoms.jpg');
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+    color: #b03060;
+    overflow: hidden;
+  }
+
+  h2 {
+    font-size: 2.5em;
+    color: #ff69b4;
+    text-shadow: 2px 2px #ffe4e1;
+  }
+
+  #eliminated, #remaining {
+    margin: 15px auto;
+    max-width: 450px;
+    background: rgba(255, 240, 245, 0.9);
+    padding: 15px;
+    border-radius: 12px;
+    border: 2px solid #ffc0cb;
+    box-shadow: 0px 4px 12px rgba(255,182,193,0.6);
+    text-align: left;
+  }
+
+  button {
+    padding: 10px 16px;
+    font-size: 16px;
+    margin: 5px;
+    border-radius: 20px;
+    border: none;
+    cursor: pointer;
+    background: linear-gradient(to bottom, #ffb6c1, #ff69b4);
+    color: white;
+    font-weight: bold;
+    box-shadow: 0px 4px 8px rgba(0,0,0,0.2);
+    transition: all 0.2s ease-in-out;
+  }
+
+  button:hover {
+    background: linear-gradient(to bottom, #ff69b4, #ff1493);
+    transform: scale(1.05);
+  }
+
+  #eliminatedColors { color: #d1477d; font-weight: bold; }
+  #remainingColors { color: #a82f5d; font-weight: bold; }
+
+  .floaty {
+    position: fixed;
+    font-size: 80px;
+    opacity: 0.9;
+    z-index: 2;
+    pointer-events: none;
+    animation: floatAround 20s linear infinite;
+  }
+
+  @keyframes floatAround {
+    0%   { transform: translate(0, 0) rotate(0deg); }
+    25%  { transform: translate(100px, -150px) rotate(90deg); }
+    50%  { transform: translate(-120px, -50px) rotate(180deg); }
+    75%  { transform: translate(80px, 150px) rotate(270deg); }
+    100% { transform: translate(0, 0) rotate(360deg); }
+  }
+</style>
+</head>
+<body>
+  <audio id="bgMusic" src="bgmusic.mp3" loop></audio>
+  <button id="musicBtn" style="
+    position: fixed;
+    bottom: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 10px 20px;
+    font-size: 16px;
+    border-radius: 20px;
+    background: linear-gradient(to bottom, #ffb6c1, #ff69b4);
+    color: white;
+    border: none;
+    cursor: pointer;
+    font-weight: bold;
+    box-shadow: 0px 4px 8px rgba(0,0,0,0.2);
+  ">
+  🎵 Play Music
+  </button>
+
+
+<h1>Guess My Favorite Color 🎀</h1>
+
+<!-- Game Container -->
+<div id="game">
+  <p id="question" style="font-weight:bold;"></p>
+  <button id="yesBtn">Yes ✅</button>
+  <button id="noBtn">No ❌</button>
+
+  <p id="guessOutput" style="font-weight:bold;"></p>
+  <div id="guessConfirm" style="display:none;">
+    <button id="correctBtn">Yes ✅</button>
+    <button id="wrongBtn">No ❌</button>
+  </div>
+
+  <div id="remaining">
+    <p><strong>Remaining Colors:</strong></p>
+    <div id="remainingColors">Loading...</div>
+  </div>
+
+  <div id="eliminated">
+    <p><strong>Colors Eliminated:</strong></p>
+    <div id="eliminatedColors">None yet</div>
+  </div>
+
+  <div id="playAgainContainer" style="margin-top:20px; display:none;">
+    <button id="playAgainBtn">🔄 Play Again</button>
+  </div>
+</div>
+
+<script>
+// Floating bows & hearts all over the screen
+const floatyIcons = ["🤍", "🎀", "💗", "💖", "💞"];
+for (let i = 0; i < 15; i++) {
+  let el = document.createElement("div");
+  el.classList.add("floaty");
+  el.style.left = ${Math.random() * 100}vw;
+  el.style.top = ${Math.random() * 100}vh;
+  el.style.animationDelay = ${Math.random() * 20}s;
+  el.textContent = floatyIcons[Math.floor(Math.random() * floatyIcons.length)];
+  document.body.appendChild(el);
+}
+</script>
+
+<script>
+// Game logic
+let colors = [
+  "Red","Blue","Green","Yellow","Pink","Purple","Orange","Brown","Black","White",
+  "Gray","Turquoise","Gold","Silver","Beige","Teal","Magenta","Lavender","Maroon","Navy",
+  "Olive","Coral","Mint","Peach","Tan","Cyan","Indigo","Violet","Burgundy","Charcoal"
+];
+let possibleColors = [...colors];
+let eliminatedColors = [];
+let currentQuestion = null;
+let currentGuess = null;
+let questions = [
+  { text: "Is it a warm color?", filter: c => ["red","orange","yellow","pink","brown","gold","beige","peach","coral"].includes(c.toLowerCase()) },
+  { text: "Is it a cool color?", filter: c => ["blue","green","purple","turquoise","teal","lavender","mint","cyan","indigo","violet"].includes(c.toLowerCase()) },
+  { text: "Is it a light color?", filter: c => ["white","pink","yellow","turquoise","beige","peach","mint","lavender","silver"].includes(c.toLowerCase()) },
+  { text: "Is it a dark color?", filter: c => ["black","brown","gray","purple","navy","maroon","burgundy","charcoal","indigo"].includes(c.toLowerCase()) },
+  { text: "Is it commonly found in nature?", filter: c => ["green","blue","brown","white","gray","black","yellow","olive","turquoise","mint","peach","coral"].includes(c.toLowerCase()) },
+  { text: "Is it often associated with royalty?", filter: c => ["purple","gold","magenta","indigo","violet"].includes(c.toLowerCase()) },
+  { text: "Is it metallic?", filter: c => ["gold","silver"].includes(c.toLowerCase()) },
+  { text: "Is it associated with Valentine's Day?", filter: c => ["red","pink","magenta"].includes(c.toLowerCase()) },
+  { text: "Would you wear it to a wedding?", filter: c => ["white","gold","silver","beige","lavender","peach","pink"].includes(c.toLowerCase()) },
+  { text: "Is it often linked to sadness?", filter: c => ["blue","gray","navy","charcoal"].includes(c.toLowerCase()) }
+];
+
+function startGame() {
+  possibleColors = [...colors];
+  eliminatedColors = [];
+  updateRemainingDisplay();
+  updateEliminatedDisplay();
+  askQuestion();
+}
+
+function askQuestion() {
+  const q = questions.find(q => {
+    const yesCount = possibleColors.filter(q.filter).length;
+    const noCount = possibleColors.length - yesCount;
+    return yesCount > 0 && noCount > 0;
+  });
+  if (q) {
+    currentQuestion = q;
+    document.getElementById("question").textContent = q.text;
+  } else {
+    makeGuess();
+  }
+}
+
+document.getElementById("yesBtn").addEventListener("click", () => handleAnswer(true));
+document.getElementById("noBtn").addEventListener("click", () => handleAnswer(false));
+
+function handleAnswer(isYes) {
+  const beforeFilter = [...possibleColors];
+  if (isYes) {
+    possibleColors = possibleColors.filter(currentQuestion.filter);
+  } else {
+    possibleColors = possibleColors.filter(c => !currentQuestion.filter(c));
+  }
+  beforeFilter.forEach(c => {
+    if (!possibleColors.includes(c) && !eliminatedColors.includes(c)) {
+      eliminatedColors.push(c);
+    }
+  });
+  updateRemainingDisplay();
+  updateEliminatedDisplay();
+  if (possibleColors.length > 1) {
+    askQuestion();
+  } else {
+    makeGuess();
+  }
+}
+
+function makeGuess() {
+  if (possibleColors.length >= 1) {
+    currentGuess = possibleColors[0];
+    document.getElementById("guessOutput").textContent = `Is your favorite color ${currentGuess}?`;
+    document.getElementById("guessConfirm").style.display = "block";
+  } else {
+    document.getElementById("guessOutput").textContent = "I couldn't guess your color!";
+    endGame();
+  }
+}
+
+document.getElementById("correctBtn").addEventListener("click", () => {
+  document.getElementById("guessOutput").textContent = "Yay! I guessed it 🎉";
+  document.getElementById("guessConfirm").style.display = "none";
+  endGame();
+});
+Guess_my_favorite_color
+document.getElementById("wrongBtn").addEventListener("click", () => {
+  eliminatedColors.push(currentGuess);
+  possibleColors = possibleColors.filter(c => c !== currentGuess);
+  updateEliminatedDisplay();
+  updateRemainingDisplay();
+  document.getElementById("guessConfirm").style.display = "none";
+  if (possibleColors.length > 0) {
+    makeGuess();
+  } else {
+    document.getElementById("guessOutput").textContent = "yea bruh idk what color that is.😒🥱";
+    endGame();
+  }
+});
+
+function updateRemainingDisplay() {
+  document.getElementById("remainingColors").textContent = possibleColors.join(", ") || "None";
+}
+
+function updateEliminatedDisplay() {
+  document.getElementById("eliminatedColors").textContent = eliminatedColors.join(", ") || "None yet";
+}
+
+function endGame() {
+  document.getElementById("playAgainContainer").style.display = "block";
+}
+
+document.getElementById("playAgainBtn").addEventListener("click", () => {
+  document.getElementById("playAgainContainer").style.display = "none";
+  document.getElementById("guessOutput").textContent = "";
+  startGame();
+});
+
+startGame();
+
+// Music control
+// Music control
+const music = document.getElementById("bgMusic");
+const musicBtn = document.getElementById("musicBtn");
+
+musicBtn.addEventListener("click", () => {
+  if (music.paused) {
+    music.play();
+    musicBtn.textContent = "⏸ Pause Music";
+  } else {
+    music.pause();
+    musicBtn.textContent = "🎵 Play Music";
+  }
+});
+
+
+</script>
+</body>
+</html>
