@@ -1,0 +1,845 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Gabby Glam's Salon</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  :root{
+    --pink:#ffc2da;
+    --hot:#ff4d94;
+    --deep:#e60073;
+    --card:#ffffff;
+    --line:#d1bfd1;
+    --panel:#fff5fb;
+    --ink:#3a2a35;
+    --okay:#19a974;
+    --warn:#ffb700;
+    --err:#d90429;
+  }
+
+  *{ box-sizing:border-box }
+  html,body{ height:100% }
+  body{
+    margin:0;
+    font-family: ui-rounded, "Segoe UI", Arial, sans-serif;
+    background:#ffe6f0;
+    color:var(--ink);
+    text-align:center;
+  }
+
+  /* ===== Start Screen ===== */
+  #startScreen{
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:
+      radial-gradient(1200px 700px at 20% 10%, #ffd6ea 0%, #ffb4d3 35%, #ff93c0 60%, #ff7ab2 80%, #ff6aa9 100%),
+      var(--pink);
+    padding:40px 16px;
+  }
+  .start-card{
+    width:min(980px,92vw);
+    background:rgba(255,255,255,.92);
+    border:2px solid #ffd0e3;
+    border-radius:22px;
+    box-shadow:0 18px 50px rgba(230,0,115,.18);
+    padding:36px 26px 28px;
+    backdrop-filter: blur(6px);
+  }
+  .title{
+    margin:0 0 10px;
+    font-size:48px;
+    line-height:1.05;
+    color:#9c004b;
+    text-shadow:0 3px 0 #ffd0e3;
+  }
+  .tag{
+    margin:0 0 22px;
+    font-size:18px;
+    color:#7a2651;
+  }
+  .menu{
+    display:grid;
+    grid-template-columns:repeat(4, minmax(160px,1fr));
+    gap:14px;
+    margin-top:12px;
+  }
+  .btn{
+    appearance:none; border:0; cursor:pointer;
+    padding:14px 18px; border-radius:14px;
+    background:#fff; color:#9c004b; font-weight:700;
+    border:2px solid #ffd0e3;
+    box-shadow:0 8px 20px rgba(255,77,148,.15);
+    transition:transform .12s ease, box-shadow .12s ease, background .12s ease, filter .12s ease;
+  }
+  .btn:hover{ transform:translateY(-2px); box-shadow:0 10px 24px rgba(255,77,148,.22) }
+  .btn:active{ transform:translateY(0) scale(.99) }
+  .btn.primary{ background:linear-gradient(180deg,#ff9cc7,#ff6aa9); color:#fff; border-color:#ff8fbd }
+  .btn.primary:hover{ filter:brightness(1.05) }
+  .btn.subtle{ background:#fff7fb }
+
+  /* ===== Game UI ===== */
+  #gameUI{ display:none; padding:10px 12px 84px }
+  .topbar{
+    display:flex; align-items:center; justify-content:center; gap:12px 18px; flex-wrap:wrap;
+    margin-top:6px;
+  }
+  .badge{
+    background:#fff; border:2px solid var(--line);
+    padding:8px 12px; border-radius:999px; font-weight:700;
+    display:flex; align-items:center; gap:8px;
+  }
+  .kpi{
+    display:flex; align-items:center; gap:8px;
+    background:#fff; border:2px solid var(--line); border-radius:12px;
+    padding:8px 10px; font-size:14px; font-weight:700;
+  }
+
+  .stage{
+    width:100%;
+    display:flex; align-items:flex-start; justify-content:center;
+    margin-top:12px;
+  }
+  #handWrap{
+    position:relative;
+    width:min(560px, 94vw);
+    aspect-ratio: 5 / 4;
+    background:#fff;
+    border:2px solid var(--line);
+    border-radius:20px;
+    box-shadow:0 14px 30px rgba(0,0,0,.06);
+    overflow:hidden;
+    user-select:none;
+  }
+  #handImg{
+    position:absolute; inset:0;
+    width:100%; height:100%; object-fit:contain;
+    pointer-events:none;
+  }
+  #dropLayer{ position:absolute; inset:0 }
+
+  /* Draggable placed items */
+  .placed{
+    position:absolute;
+    width:120px;
+    user-select:none;
+    cursor:grab;
+    touch-action:none;
+  }
+  .placed.dragging{ cursor:grabbing; opacity:.88 }
+  .tip{ width:48px; height:24px; image-rendering:auto } /* default, will be set per position */
+  .ghost{ opacity:.85; }
+
+  /* Options panel */
+  #optionsWrap{
+    margin:18px auto 8px;
+    width:min(960px, 96vw);
+    display:grid;
+    grid-template-columns: repeat(3, minmax(180px,1fr));
+    gap:14px;
+  }
+  .option{
+    background:#fff; border:2px solid var(--line); border-radius:14px; padding:10px;
+    box-shadow:0 6px 16px rgba(0,0,0,.05);
+  }
+  .optImg{
+    width:100%; aspect-ratio:1 / 1; object-fit:cover; border-radius:10px; border:1px solid #f1d6ea;
+  }
+  .optName{ margin:8px 0 0; font-weight:700; color:#7a2651; font-size:15px; min-height:1.6em }
+
+  #message{ min-height:24px; margin:10px 0 2px; font-weight:700; color:#7a2651 }
+  #controls{ margin-top:6px; display:flex; align-items:center; justify-content:center; gap:10px; flex-wrap:wrap }
+  #nextBtn{
+    appearance:none; border:0; cursor:pointer;
+    padding:12px 18px; border-radius:12px; font-weight:800; letter-spacing:.3px;
+    background:#ddd; color:#777; transition:filter .12s ease, transform .1s ease; border:2px solid #ccc;
+  }
+  #nextBtn.enabled{ background:linear-gradient(180deg,#ff9cc7,#ff6aa9); color:#fff; border-color:#ff8fbd }
+  #nextBtn.enabled:hover{ filter:brightness(1.05); transform:translateY(-1px) }
+
+  /* Palette panel (appears during Paint step) */
+  #palette{
+    display:none;
+    margin:12px auto 0;
+    width:min(960px,96vw);
+    background:var(--panel);
+    border:2px dashed var(--line);
+    border-radius:16px;
+    padding:12px;
+  }
+  .palette-row{
+    display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:center;
+    margin:8px 0;
+  }
+  .swatch{
+    width:32px; height:32px; border-radius:8px; border:2px solid #fff; outline:2px solid rgba(0,0,0,.08);
+    cursor:pointer;
+  }
+  .swatch:hover{ outline-color: rgba(0,0,0,.18) }
+  .swatch.glitter{ background-size: 40px 40px; background-repeat: repeat; }
+
+  /* Overlay color per tip (masked to tip PNG) */
+  .tip-color{
+    position:absolute;
+    pointer-events:none;
+    mask-repeat:no-repeat;
+    mask-size:100% 100%;
+    -webkit-mask-repeat:no-repeat;
+    -webkit-mask-size:100% 100%;
+  }
+
+  /* Music toggle */
+  #musicToggle{
+    position:fixed; right:12px; bottom:12px; z-index:9999;
+    background:#fff; border:2px solid var(--line); border-radius:999px;
+    padding:10px 12px; box-shadow:0 10px 24px rgba(0,0,0,.12); cursor:pointer;
+  }
+
+  /* Sound toggle */
+  #sfxToggle{
+    position:fixed; right:12px; bottom:60px; z-index:9999;
+    background:#fff; border:2px solid var(--line); border-radius:999px;
+    padding:10px 12px; box-shadow:0 10px 24px rgba(0,0,0,.12); cursor:pointer;
+  }
+
+  /* Hidden helper */
+  .hidden{ display:none !important }
+</style>
+</head>
+<body>
+
+<!-- ===== START SCREEN ===== -->
+<section id="startScreen" aria-label="Start Menu">
+  <div class="start-card">
+    <h1 class="title">Welcome to Gabby Glam's Salon!</h1>
+    <p class="tag">Drag the correct tool onto the hand. Place all 10 tips, move them until you’re happy, then continue through the steps. Paint and glitter perfectly hug the tips ✨</p>
+    <div class="menu">
+      <button class="btn" id="howBtn">1. How to Play</button>
+      <button class="btn primary" id="startBtn">2. Start Game</button>
+      <button class="btn subtle" id="practiceBtn">3. Practice Mode</button>
+      <button class="btn" id="customizeBtn">4. Customize Nail Salon</button>
+    </div>
+    <p style="margin-top:14px;color:#7a2651;font-weight:700">Tip: You can also press <kbd>Enter</kbd> to start.</p>
+  </div>
+</section>
+
+<!-- ===== GAME UI ===== -->
+<section id="gameUI" aria-label="Game">
+  <div class="topbar">
+    <div class="badge" id="customerReq">Customer wants pastel colors 🌸</div>
+    <div class="badge">Step <span id="stepNum">1</span> / <span id="stepTotal">9</span></div>
+    <div class="kpi" title="Execution speed"><span>Speed:</span><span id="kpiSpeed">0.0s</span></div>
+    <div class="kpi" title="Placement accuracy"><span>Accuracy:</span><span id="kpiAcc">0%</span></div>
+  </div>
+
+  <div class="stage">
+    <div id="handWrap">
+      <img id="handImg" src="hand.jpg" alt="Hand">
+      <div id="dropLayer" aria-label="Drop and Click Layer"></div>
+    </div>
+  </div>
+
+  <div id="optionsWrap"></div>
+
+  <div id="message" role="status" aria-live="polite"></div>
+
+  <div id="palette" aria-label="Color & Glitter Palette">
+    <div class="palette-row" id="solidRow"></div>
+    <div class="palette-row" id="glitterRow"></div>
+    <div class="palette-row">
+      <label style="font-weight:700;color:#7a2651">Use custom image:</label>
+      <input type="file" id="imgUpload" accept="image/*">
+      <button class="btn" id="closePaletteBtn">Close Palette</button>
+    </div>
+  </div>
+
+  <div id="controls">
+    <button id="nextBtn" disabled>Next Step ▶</button>
+  </div>
+</section>
+
+<!-- Toggles -->
+<button id="musicToggle" title="Toggle music">🎵 Music</button>
+<button id="sfxToggle"   title="Toggle SFX">🔊 SFX</button>
+
+<!-- Background music -->
+<audio id="bgMusic" loop>
+  <source src="music.mp3" type="audio/mpeg">
+</audio>
+<!-- One-shot SFX player -->
+<audio id="sfxPlayer"></audio>
+
+<script>
+/* ============================================================
+   DATA
+   ============================================================ */
+const steps = [
+  { name:"Buff",       img:"buff.jpg",       sfx:"buff.mp3"       },
+  { name:"Prep",       img:"prep.jpg",       sfx:"prep.mp3"       },
+  { name:"Dehydrate",  img:"dehydrate.jpg",  sfx:"dehydrate.mp3"  },
+  { name:"Prime",      img:"prime.jpg",      sfx:"prime.mp3"      },
+  { name:"Glue Tips",  img:"nailtips.png",   sfx:"tips.mp3"       },  // tip sprite should be transparent PNG
+  { name:"Shape",      img:"shape.jpg",      sfx:"shape.mp3"      },
+  { name:"Paint",      img:"paint.jpg",      sfx:"paint.mp3"      },
+  { name:"Decorate",   img:"decorate.jpg",   sfx:"decorate.mp3"   },
+  { name:"Top Coat",   img:"topcoat.jpg",    sfx:"topcoat.mp3"    }
+];
+const styles = ["bright red", "french tips", "glitter", "pastel colors", "ombre style"];
+
+/* Tip anchors sized to match the nails in hand.jpg.
+   x,y are top-left of each nail bed region (within handWrap),
+   w,h match the visible nail (so the tip PNG fits perfectly). */
+const tipPositions = [
+  {x: 66,  y: 56,  w: 44, h: 26}, // Thumb L1
+  {x: 114, y: 48,  w: 38, h: 24}, // Index L2
+  {x: 162, y: 45,  w: 36, h: 24}, // Middle L3
+  {x: 210, y: 48,  w: 36, h: 24}, // Ring  L4
+  {x: 258, y: 54,  w: 34, h: 22}, // Pinky L5
+  {x: 72,  y: 140, w: 44, h: 26}, // Thumb R1
+  {x: 122, y: 130, w: 38, h: 24}, // Index R2
+  {x: 170, y: 124, w: 36, h: 24}, // Middle R3
+  {x: 216, y: 124, w: 36, h: 24}, // Ring  R4
+  {x: 262, y: 130, w: 34, h: 22}  // Pinky R5
+];
+
+/* Solid colors for quick paint */
+const solidColors = [
+  "#ffffff","#f8e8f2","#ffd6ea","#ffb4d3","#ff93c0","#ff7ab2","#ff6aa9","#ff4d94","#ff2e80","#e60073",
+  "#ffedf0","#ffd1d1","#ffb3b3","#ff8a8a","#ff6b6b","#ff5252","#ff3939","#ff2222","#e60000","#b30000",
+  "#f2ffe6","#e5ffd1","#caff99","#a7ff66","#7aff33","#59e600","#39b300","#8bf3ff","#55d6ff","#00bfff",
+  "#e6f7ff","#cceeff","#b3e6ff","#99ddff","#80d4ff","#66ccff","#4dc3ff","#33bbff","#19b2ff","#00aaff",
+  "#f5f5f5","#e0e0e0","#cfcfcf","#bdbdbd","#9e9e9e","#7e7e7e","#616161","#424242","#303030","#101010"
+];
+
+/* Glitter patterns (use small repeating images if you have them; here we fake with gradients) */
+const glitterDefs = [
+  {name:"Holo Pink",    css:"repeating-linear-gradient(45deg, rgba(255,0,128,.65) 0 6px, rgba(255,255,255,.4) 6px 8px, rgba(255,0,128,.65) 8px 14px)"},
+  {name:"Rose Gold",    css:"repeating-linear-gradient(45deg, rgba(255,179,186,.8) 0 8px, rgba(255,240,240,.5) 8px 10px, rgba(255,179,186,.8) 10px 16px)"},
+  {name:"Gold",         css:"repeating-linear-gradient(45deg, rgba(255,215,0,.75) 0 7px, rgba(255,250,205,.5) 7px 9px, rgba(255,215,0,.75) 9px 15px)"},
+  {name:"Silver",       css:"repeating-linear-gradient(45deg, rgba(192,192,192,.75) 0 7px, rgba(250,250,250,.6) 7px 9px, rgba(192,192,192,.75) 9px 15px)"},
+  {name:"Mermaid Teal", css:"repeating-linear-gradient(45deg, rgba(0,200,180,.7) 0 6px, rgba(180,255,250,.45) 6px 8px, rgba(0,200,180,.7) 8px 14px)"},
+  {name:"Lavender",     css:"repeating-linear-gradient(45deg, rgba(180,140,255,.7) 0 6px, rgba(240,230,255,.55) 6px 8px, rgba(180,140,255,.7) 8px 14px)"},
+  {name:"Galaxy",       css:"radial-gradient(circle at 25% 25%, rgba(255,255,255,.4) 2px, transparent 3px), radial-gradient(circle at 75% 40%, rgba(255,255,255,.35) 2px, transparent 3px), linear-gradient(135deg, rgba(81,0,119,.75), rgba(0,0,40,.85))"}
+];
+
+/* ============================================================
+   STATE
+   ============================================================ */
+let currentStepIndex = 0;
+let stepSatisfied = false;
+let placedTipsCount = 0;
+let draggingEl = null;
+let dragOffset = {x:0,y:0};
+
+let placedNonTipEls = [];  // things dropped for non-tip steps (to be cleared on Next)
+let placedTipsArr   = [];  // 10 individual <img> tips, persist across steps
+let tipOverlaysArr  = [];  // per-tip color overlays (masked divs), persist once created
+
+let handRectCache = null;
+
+let sfxEnabled = true;
+let musicEnabled = false;
+
+let stepStartTime = 0;
+let paintAppliedThisStep = false;
+
+/* ============================================================
+   ELEMENTS
+   ============================================================ */
+const startScreen = document.getElementById('startScreen');
+const startBtn    = document.getElementById('startBtn');
+const howBtn      = document.getElementById('howBtn');
+const customizeBtn= document.getElementById('customizeBtn');
+const practiceBtn = document.getElementById('practiceBtn');
+
+const gameUI      = document.getElementById('gameUI');
+const handWrap    = document.getElementById('handWrap');
+const handImg     = document.getElementById('handImg');
+const dropLayer   = document.getElementById('dropLayer');
+const optionsWrap = document.getElementById('optionsWrap');
+const messageEl   = document.getElementById('message');
+const nextBtn     = document.getElementById('nextBtn');
+const stepNumEl   = document.getElementById('stepNum');
+const stepTotalEl = document.getElementById('stepTotal');
+const reqEl       = document.getElementById('customerReq');
+
+const kpiSpeedEl  = document.getElementById('kpiSpeed');
+const kpiAccEl    = document.getElementById('kpiAcc');
+
+const palette     = document.getElementById('palette');
+const solidRow    = document.getElementById('solidRow');
+const glitterRow  = document.getElementById('glitterRow');
+const imgUpload   = document.getElementById('imgUpload');
+const closePaletteBtn = document.getElementById('closePaletteBtn');
+
+const musicToggle = document.getElementById('musicToggle');
+const sfxToggle   = document.getElementById('sfxToggle');
+const bgMusic     = document.getElementById('bgMusic');
+const sfxPlayer   = document.getElementById('sfxPlayer');
+
+/* ============================================================
+   INIT
+   ============================================================ */
+stepTotalEl.textContent = steps.length;
+
+startBtn.addEventListener('click', begin);
+howBtn.addEventListener('click', ()=>alert('How to Play:\n\n1) Drag the correct tool onto the hand.\n2) For "Glue Tips", click to place all 10 tips; move them until satisfied.\n3) For "Paint", pick a color or glitter; it will apply to the tips only.\n4) Press Next to continue. Previous non-tip step items clean up automatically.\n\nHave fun!'));
+practiceBtn.addEventListener('click', ()=>alert('Practice Mode coming soon!'));
+customizeBtn.addEventListener('click', ()=>alert('Customize Salon coming soon!'));
+
+document.addEventListener('keydown', (e)=>{
+  if (e.key === 'Enter' && startScreen.style.display !== 'none'){
+    begin();
+  }
+});
+
+musicToggle.addEventListener('click', ()=>{
+  musicEnabled = !musicEnabled;
+  if (musicEnabled){ bgMusic.play().catch(()=>{}); }
+  else { bgMusic.pause(); }
+  musicToggle.textContent = musicEnabled ? '🎵 Music On' : '🎵 Music Off';
+});
+sfxToggle.addEventListener('click', ()=>{
+  sfxEnabled = !sfxEnabled;
+  sfxToggle.textContent = sfxEnabled ? '🔊 SFX On' : '🔇 SFX Off';
+});
+
+nextBtn.addEventListener('click', onNextStep);
+closePaletteBtn.addEventListener('click', ()=> palette.style.display='none');
+imgUpload.addEventListener('change', onCustomImage);
+
+/* Palette build (once) */
+(function buildPalette(){
+  solidColors.forEach(c=>{
+    const b = document.createElement('button');
+    b.className = 'swatch';
+    b.style.background = c;
+    b.title = c;
+    b.addEventListener('click', ()=>applyColorToTips(c));
+    solidRow.appendChild(b);
+  });
+  glitterDefs.forEach(g=>{
+    const b = document.createElement('button');
+    b.className = 'swatch glitter';
+    b.style.background = g.css;
+    b.title = g.name;
+    b.addEventListener('click', ()=>applyColorToTips(g.css, /*isPattern*/true));
+    glitterRow.appendChild(b);
+  });
+})();
+
+/* Drag & Drop targets for non-tip steps */
+dropLayer.addEventListener('dragover', e=>{ e.preventDefault(); });
+dropLayer.addEventListener('drop', onDropToHand);
+
+/* Resize cache */
+window.addEventListener('resize', ()=>{ handRectCache = handWrap.getBoundingClientRect(); });
+
+/* Preload images */
+(function preload(){
+  const imgs = [ 'hand.jpg', ...steps.map(s=>s.img) ];
+  imgs.forEach(src=>{ const i = new Image(); i.src = src; });
+})();
+
+/* ============================================================
+   START GAME
+   ============================================================ */
+function begin(){
+  startScreen.style.display = 'none';
+  gameUI.style.display = 'block';
+  reqEl.textContent = `Customer: I would like ${styles[Math.floor(Math.random()*styles.length)]}, please!`;
+  currentStepIndex = 0;
+  stepNumEl.textContent = 1;
+  placedTipsArr = [];
+  tipOverlaysArr = [];
+  placedTipsCount = 0;
+  clearNonTipPlacements();
+  loadStep();
+  if (musicEnabled){ bgMusic.play().catch(()=>{}); }
+}
+
+/* ============================================================
+   STEP FLOW
+   ============================================================ */
+function loadStep(){
+  handRectCache = handWrap.getBoundingClientRect();
+  messageEl.textContent = "";
+  stepSatisfied = false;
+  nextBtn.disabled = true;
+  nextBtn.classList.remove('enabled');
+  paintAppliedThisStep = false;
+
+  stepNumEl.textContent = (currentStepIndex + 1).toString();
+  optionsWrap.innerHTML = "";
+  palette.style.display = 'none';
+
+  const correct = steps[currentStepIndex];
+  const wrong   = steps.filter(s => s.name !== correct.name).sort(()=>Math.random()-0.5).slice(0,2);
+  const options = shuffle([correct, ...wrong]);
+
+  options.forEach(opt=>{
+    const card = document.createElement('div');
+    card.className = 'option';
+
+    const img = document.createElement('img');
+    img.className = 'optImg optImg--'+slug(opt.name);
+    img.src = opt.img;  img.alt = opt.name;  img.draggable = true;
+
+    const name = document.createElement('div');
+    name.className='optName';
+    name.textContent = opt.name;
+
+    img.addEventListener('dragstart', e=>{
+      e.dataTransfer.setData('text/step', opt.name);
+      e.dataTransfer.setData('text/src', opt.img);
+    });
+
+    card.appendChild(img); card.appendChild(name);
+    optionsWrap.appendChild(card);
+  });
+
+  // special: if in Paint step, show the palette (still must drop the "Paint" tool first to satisfy)
+  if (correct.name === "Paint"){
+    palette.style.display = 'block';
+  }
+
+  // tip placement click mode only during Glue Tips after the correct tool is dropped once
+  dropLayer.style.cursor = 'default';
+
+  stepStartTime = performance.now();
+}
+
+function onDropToHand(e){
+  e.preventDefault();
+  const stepName = e.dataTransfer.getData('text/step');
+  const src      = e.dataTransfer.getData('text/src');
+  const correct  = steps[currentStepIndex];
+
+  if (!stepName){ return; }
+
+  // Wrong tool
+  if (stepName !== correct.name){
+    messageEl.textContent = "❌ Wrong step. Try again!";
+    playSfx('error.mp3');
+    return;
+  }
+
+  // Correct tool:
+  if (stepName === "Glue Tips"){
+    // Enter tip placement mode if not already complete: clicks place up to 10 tips
+    if (placedTipsArr.length === 10){
+      messageEl.textContent = "✅ Tips already placed. You can still move them. Click Next when ready.";
+      stepSatisfied = true; nextBtn.disabled = false; nextBtn.classList.add('enabled');
+      playSfx(correct.sfx);
+      return;
+    }
+    messageEl.textContent = "Place 10 nail tips by clicking on the hand. Tips will snap to nails. (0/10)";
+    enableTipPlacement(src);
+    playSfx(correct.sfx);
+    return;
+  }
+
+  if (stepName === "Paint"){
+    // For paint, just dropping the tool doesn't place an image; the palette applies to tips only
+    if (placedTipsArr.length < 10){
+      messageEl.textContent = "Place all 10 tips first, then paint.";
+      playSfx('error.mp3');
+      return;
+    }
+    messageEl.textContent = "Pick a color or glitter, then click Next when you're happy.";
+    palette.style.display = 'block';
+    // Allow Next only after at least one paint applied
+    playSfx(correct.sfx);
+    return;
+  }
+
+  // Regular non-tip step: place an image where dropped; becomes movable; will be removed on Next
+  const local = toLocalPoint(e.clientX, e.clientY, handWrap);
+  const el = document.createElement('img');
+  el.src = src;
+  el.alt = stepName;
+  el.className = 'placed';
+  el.style.left = (local.x - 60) + 'px';
+  el.style.top  = (local.y - 60) + 'px';
+  makeMovable(el);
+  handWrap.appendChild(el);
+  placedNonTipEls.push(el);
+
+  messageEl.textContent = `✅ ${stepName} placed. Adjust as you like, then click Next when ready.`;
+  stepSatisfied = true;
+  nextBtn.disabled = false;
+  nextBtn.classList.add('enabled');
+  playSfx(steps[currentStepIndex].sfx);
+}
+
+function onNextStep(){
+  if (!stepSatisfied) return;
+
+  // Compute KPIs for the step
+  const stepTime = Math.max(0, (performance.now() - stepStartTime)/1000);
+  kpiSpeedEl.textContent = stepTime.toFixed(1) + 's';
+  kpiAccEl.textContent = computeAccuracyForCurrentStep();
+
+  // Clear non-tip items when leaving step (tips persist across steps)
+  clearNonTipPlacements();
+
+  // During tip step, disable movement afterwards
+  if (steps[currentStepIndex].name === "Glue Tips"){
+    placedTipsArr.forEach(tip=>{
+      tip.style.cursor = 'default';
+      tip.onpointerdown = null;
+      tip.onpointermove = null;
+      tip.onpointerup   = null;
+    });
+    dropLayer.removeEventListener('click', onTipClick);
+    dropLayer.style.cursor = 'default';
+  }
+
+  // Paint step requirement: ensure at least one paint was applied
+  if (steps[currentStepIndex].name === "Paint" && !paintAppliedThisStep){
+    messageEl.textContent = "Pick a color or glitter first ✨";
+    playSfx('error.mp3');
+    return;
+  }
+
+  currentStepIndex++;
+  if (currentStepIndex >= steps.length){
+    // Finished all steps
+    messageEl.textContent = "💖 All steps completed! Nails are perfect!";
+    nextBtn.disabled = true;
+    nextBtn.classList.remove('enabled');
+    palette.style.display = 'none';
+    playSfx('complete.mp3');
+    return;
+  }
+  loadStep();
+}
+
+/* ============================================================
+   TIP PLACEMENT (10 tips, movable until Next, persistent afterwards)
+   ============================================================ */
+function enableTipPlacement(src){
+  // Each click places next tip at pre-sized anchor
+  dropLayer.style.cursor = 'crosshair';
+  dropLayer.removeEventListener('click', onTipClick);
+  dropLayer.addEventListener('click', onTipClick);
+
+  // If tips already exist (e.g., replay), do nothing
+  if (placedTipsArr.length > 0) return;
+
+  // Pre-create but don't append? We'll create on click for clarity
+  function onFirst(){
+    // noop
+  }
+}
+
+function onTipClick(e){
+  if (placedTipsArr.length >= 10){
+    messageEl.textContent = "All tips placed. You can move them until you click Next.";
+    stepSatisfied = true;
+    nextBtn.disabled = false;
+    nextBtn.classList.add('enabled');
+    dropLayer.style.cursor = 'default';
+    dropLayer.removeEventListener('click', onTipClick);
+    return;
+  }
+  const src = steps.find(s=>s.name==="Glue Tips").img;
+  // Place next tip at its anchor (we use predetermined anchors for perfect size/fit)
+  const idx = placedTipsArr.length;
+  const pos = tipPositions[idx];
+
+  const tip = document.createElement('img');
+  tip.src = src;
+  tip.alt = "Nail Tip";
+  tip.className = 'placed tip';
+  tip.style.left   = pos.x + 'px';
+  tip.style.top    = pos.y + 'px';
+  tip.style.width  = pos.w + 'px';
+  tip.style.height = pos.h + 'px';
+
+  // allow moving until Next
+  makeMovable(tip);
+  handWrap.appendChild(tip);
+  placedTipsArr.push(tip);
+
+  placedTipsCount = placedTipsArr.length;
+  if (placedTipsCount < 10){
+    messageEl.textContent = `✅ Tip ${placedTipsCount} placed. (${placedTipsCount}/10)`;
+  } else {
+    messageEl.textContent = "✅ 10 tips placed! Move them if needed, then click Next.";
+    stepSatisfied = true;
+    nextBtn.disabled = false;
+    nextBtn.classList.add('enabled');
+    dropLayer.style.cursor = 'default';
+    dropLayer.removeEventListener('click', onTipClick);
+  }
+}
+
+/* ============================================================
+   PAINTING — apply to tips only (perfect fit, masked overlays)
+   ============================================================ */
+function ensureTipOverlays(){
+  // Create a color overlay for each tip if missing; overlay size/pos = tip size/pos
+  const maskUrl = 'url(' + steps.find(s=>s.name==="Glue Tips").img + ')';
+  while (tipOverlaysArr.length < placedTipsArr.length){
+    const idx = tipOverlaysArr.length;
+    const tip = placedTipsArr[idx];
+    const ov = document.createElement('div');
+    ov.className = 'tip-color';
+    ov.style.left = tip.style.left;
+    ov.style.top  = tip.style.top;
+    ov.style.width  = tip.style.width;
+    ov.style.height = tip.style.height;
+    ov.style.maskImage = maskUrl;
+    ov.style.webkitMaskImage = maskUrl;
+    handWrap.appendChild(ov);
+    tipOverlaysArr.push(ov);
+  }
+  // Keep overlays aligned if user moved tips during this step
+  for (let i=0;i<placedTipsArr.length;i++){
+    const tip = placedTipsArr[i];
+    const ov  = tipOverlaysArr[i];
+    ov.style.left   = tip.style.left;
+    ov.style.top    = tip.style.top;
+    ov.style.width  = tip.style.width;
+    ov.style.height = tip.style.height;
+  }
+}
+
+function applyColorToTips(fill, isPattern=false){
+  if (steps[currentStepIndex]?.name !== "Paint"){
+    messageEl.textContent = "Paint colors are available during the Paint step.";
+    playSfx('error.mp3');
+    return;
+  }
+  if (placedTipsArr.length < 10){
+    messageEl.textContent = "Place all 10 tips first, then paint.";
+    playSfx('error.mp3');
+    return;
+  }
+  ensureTipOverlays();
+
+  tipOverlaysArr.forEach(ov=>{
+    if (isPattern){
+      ov.style.background = fill;     // pattern CSS
+    } else {
+      ov.style.background = fill;     // solid color
+    }
+    ov.style.opacity = '1';
+  });
+
+  paintAppliedThisStep = true;
+  stepSatisfied = true;
+  nextBtn.disabled = false;
+  nextBtn.classList.add('enabled');
+  messageEl.textContent = "🎨 Color applied! Click Next when you're ready.";
+  playSfx('paint.mp3'); // fallback if paint.mp3 is missing handled in playSfx
+}
+
+function onCustomImage(evt){
+  const file = evt.target.files?.[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ()=>{
+    const url = `url(${reader.result})`;
+    applyColorToTips(url, /*isPattern*/true);
+  };
+  reader.readAsDataURL(file);
+}
+
+/* ============================================================
+   MOVEMENT / DRAGGABLE
+   ============================================================ */
+function makeMovable(el){
+  el.addEventListener('pointerdown', (ev)=>{
+    ev.preventDefault();
+    draggingEl = el;
+    el.classList.add('dragging');
+    el.setPointerCapture(ev.pointerId);
+    const rect = el.getBoundingClientRect();
+    dragOffset.x = ev.clientX - rect.left;
+    dragOffset.y = ev.clientY - rect.top;
+  });
+  el.addEventListener('pointermove', (ev)=>{
+    if (!draggingEl) return;
+    const r = handWrap.getBoundingClientRect();
+    const w = el.clientWidth;
+    const h = el.clientHeight;
+    const left = clamp(ev.clientX - r.left - dragOffset.x, 0, handWrap.clientWidth  - w);
+    const top  = clamp(ev.clientY - r.top  - dragOffset.y, 0, handWrap.clientHeight - h);
+    el.style.left = left + 'px';
+    el.style.top  = top  + 'px';
+
+    // keep overlay aligned if this is a tip being moved before Next
+    const tipIdx = placedTipsArr.indexOf(el);
+    if (tipIdx >= 0 && tipOverlaysArr[tipIdx]){
+      const ov = tipOverlaysArr[tipIdx];
+      ov.style.left = left + 'px';
+      ov.style.top  = top  + 'px';
+      ov.style.width  = el.style.width;
+      ov.style.height = el.style.height;
+    }
+  });
+  el.addEventListener('pointerup', (ev)=>{
+    if (!draggingEl) return;
+    draggingEl.classList.remove('dragging');
+    draggingEl.releasePointerCapture(ev.pointerId);
+    draggingEl = null;
+  });
+}
+
+/* ============================================================
+   CLEANUP / UTILS
+   ============================================================ */
+function clearNonTipPlacements(){
+  placedNonTipEls.forEach(el=>{
+    if (el && el.parentNode) el.parentNode.removeChild(el);
+  });
+  placedNonTipEls = [];
+}
+
+function toLocalPoint(clientX, clientY, container){
+  const r = container.getBoundingClientRect();
+  return { x: clientX - r.left, y: clientY - r.top };
+}
+function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
+function shuffle(arr){ return arr.map(v=>[Math.random(),v]).sort((a,b)=>a[0]-b[0]).map(p=>p[1]); }
+function slug(s){ return s.toLowerCase().replace(/[^a-z0-9]+/g,'-'); }
+
+function computeAccuracyForCurrentStep(){
+  // Simple placeholder: during Glue Tips, compute mean distance from anchors (lower = better)
+  if (steps[currentStepIndex]?.name === "Glue Tips"){
+    let total=0;
+    for (let i=0;i<placedTipsArr.length;i++){
+      const t = placedTipsArr[i];
+      const a = tipPositions[i];
+      const dx = (parseFloat(t.style.left)||0) - a.x;
+      const dy = (parseFloat(t.style.top)||0)  - a.y;
+      const d = Math.sqrt(dx*dx+dy*dy);
+      total += d;
+    }
+    const avg = placedTipsArr.length ? (total/placedTipsArr.length) : 0;
+    // Map distance to accuracy percentage (0px -> 100%, >=40px -> ~0%)
+    const acc = Math.max(0, 100 - (avg/40)*100);
+    return acc.toFixed(0) + '%';
+  }
+  // For other steps, just return 100% if they placed correctly
+  return stepSatisfied ? '100%' : '0%';
+}
+
+/* Play per-step sfx safely (silently ignores missing files) */
+function playSfx(src){
+  if (!sfxEnabled) return;
+  if (!src) return;
+  try{
+    sfxPlayer.pause();
+    sfxPlayer.currentTime = 0;
+    sfxPlayer.src = src;
+    sfxPlayer.play().catch(()=>{});
+  }catch(e){}
+}
+</script>
+</body>
+</html>
